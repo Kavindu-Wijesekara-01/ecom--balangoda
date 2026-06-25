@@ -35,7 +35,11 @@ export default function CheckoutModal({ isOpen, onClose, cart, totalAmount, onSu
 
   const buildWhatsAppMessage = (orderData: any) => {
     const itemLines = cart
-      .map((item: any) => `  • ${item.name} × ${item.quantity} — Rs ${(item.price * item.quantity).toLocaleString()}`)
+      .map((item: any) => {
+        const variation = [item.selectedSize, item.selectedColor].filter(Boolean).join(" / ");
+        const variationText = variation ? ` [${variation}]` : "";
+        return `  • ${item.name}${variationText} × ${item.quantity} — Rs ${(item.price * item.quantity).toLocaleString()}`;
+      })
       .join("\n");
 
     const paymentLabel = orderData.paymentMethod === "cod" ? "Cash on Delivery" : "Bank Transfer";
@@ -71,7 +75,9 @@ export default function CheckoutModal({ isOpen, onClose, cart, totalAmount, onSu
       const orderItems = cart.map(item => ({
         name: item.name,
         price: Number(item.price.toString().replace(/[^0-9.-]+/g,"")),
-        quantity: item.quantity || 1
+        quantity: item.quantity || 1,
+        selectedSize: item.selectedSize || "",
+        selectedColor: item.selectedColor || ""
       }));
 
       const newOrderData = {
@@ -171,7 +177,9 @@ export default function CheckoutModal({ isOpen, onClose, cart, totalAmount, onSu
       doc.setTextColor(17, 24, 39);
       doc.setFont("helvetica", "normal");
       cart.forEach(item => {
-        const splitName = doc.splitTextToSize(item.name, 90);
+        const variation = [item.selectedSize, item.selectedColor].filter(Boolean).join(" / ");
+        const displayName = variation ? `${item.name} [${variation}]` : item.name;
+        const splitName = doc.splitTextToSize(displayName, 90);
         doc.text(splitName, 25, y);
         doc.text((item.quantity || 1).toString(), 130, y, { align: "center" });
         doc.text(`Rs ${(item.price * (item.quantity || 1)).toLocaleString()}`, 185, y, { align: "right" });

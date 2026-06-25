@@ -35,7 +35,7 @@ export default function AdminDashboard() {
   // ---------------- MODAL & FORM STATES ----------------
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
-  const [productForm, setProductForm] = useState({ name: "", price: "", categoryId: "", imageUrl: "", description: "" });
+  const [productForm, setProductForm] = useState({ name: "", price: "", categoryId: "", imageUrl: "", description: "", sizes: "", colors: [] as {name: string, image: string}[] });
 
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
@@ -112,11 +112,13 @@ export default function AdminDashboard() {
         price: product.price.toString(), 
         categoryId: product.categoryId?._id || product.categoryId || "", 
         imageUrl: product.imageUrl || "", 
-        description: product.description || "" 
+        description: product.description || "",
+        sizes: (product.sizes || []).join(", "),
+        colors: (product.colors || []).map((c: any) => ({ name: c.name || c, image: c.image || "" }))
       });
     } else {
       setEditingProductId(null);
-      setProductForm({ name: "", price: "", categoryId: "", imageUrl: "", description: "" });
+      setProductForm({ name: "", price: "", categoryId: "", imageUrl: "", description: "", sizes: "", colors: [] });
     }
     setIsProductModalOpen(true);
   };
@@ -125,14 +127,33 @@ export default function AdminDashboard() {
     e.preventDefault();
     const method = editingProductId ? "PATCH" : "POST";
     const url = editingProductId ? `/api/products/${editingProductId}` : "/api/products";
-    
-    const payload = {
+
+    // Parse comma-separated size/color strings into clean arrays
+    const selectedCategory = categories.find((c: any) => c._id === productForm.categoryId);
+    const clothingKeywords = ["clothing", "apparel", "apparels"];
+    const isClothing = clothingKeywords.some(kw => selectedCategory?.name?.toLowerCase().includes(kw));
+
+    const payload: any = {
       name: productForm.name,
       price: Number(productForm.price),
       categoryId: productForm.categoryId || null,
       imageUrl: productForm.imageUrl,
       description: productForm.description
     };
+
+    if (isClothing) {
+      payload.sizes = productForm.sizes
+        .split(",")
+        .map((s: string) => s.trim())
+        .filter((s: string) => s.length > 0);
+      payload.colors = productForm.colors
+        .filter((c: {name: string, image: string}) => c.name.trim().length > 0)
+        .map((c: {name: string, image: string}) => ({ name: c.name.trim(), image: c.image.trim() }));
+    } else {
+      // Clear any previously-saved clothing fields if category changed
+      payload.sizes = [];
+      payload.colors = [];
+    }
 
     try {
       const res = await fetch(url, {
@@ -503,6 +524,103 @@ export default function AdminDashboard() {
                   <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Description</label>
                   <textarea value={productForm.description} onChange={e => setProductForm({...productForm, description: e.target.value})} className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#f97316] resize-none h-24 text-[#0f172a] bg-white font-medium" placeholder="Product details..."></textarea>
                 </div>
+
+                {/* --- CLOTHING-ONLY: Sizes & Colors --- */}
+                {(() => {
+                  const selCat = categories.find((c: any) => c._id === productForm.categoryId);
+                  const clothingKeywords = ["clothing", "apparel", "apparels"];
+                  const isClothing = clothingKeywords.some(kw => selCat?.name?.toLowerCase().includes(kw));
+                  if (!isClothing) return null;
+                  return (
+                    <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 space-y-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-base">👕</span>
+                        <span className="text-xs font-extrabold text-orange-700 uppercase tracking-wider">Clothing Variations</span>
+                      </div>
+
+                      {/* Sizes — comma-separated */}
+                      <div>
+                        <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Available Sizes</label>
+                        <input
+                          type="text"
+                          value={productForm.sizes}
+                          onChange={e => setProductForm({...productForm, sizes: e.target.value})}
+                          className="w-full px-4 py-2 border border-orange-200 rounded-lg focus:outline-none focus:border-[#f97316] text-[#0f172a] bg-white font-medium"
+                          placeholder="S, M, L, XL, XXL"
+                        />
+                        <p className="text-[10px] text-gray-400 mt-1">Separate with commas. Leave empty to hide size selector.</p>
+                      </div>
+
+                      {/* Colors — dynamic name + image entries */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-xs font-bold text-gray-600 uppercase">Available Colors</label>
+                          <button
+                            type="button"
+                            onClick={() => setProductForm({...productForm, colors: [...productForm.colors, {name: "", image: ""}]})}
+                            className="text-[10px] font-bold bg-orange-500 text-white px-3 py-1 rounded-lg hover:bg-orange-600 transition"
+                          >+ Add Color</button>
+                        </div>
+
+                        {productForm.colors.length === 0 && (
+                          <p className="text-[11px] text-gray-400 font-medium italic">No colors added yet. Click "+ Add Color" to start.</p>
+                        )}
+
+                        <div className="space-y-3">
+                          {productForm.colors.map((colorItem, idx) => (
+                            <div key={idx} className="bg-white border border-orange-200 rounded-lg p-3 relative">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = productForm.colors.filter((_, i) => i !== idx);
+                                  setProductForm({...productForm, colors: updated});
+                                }}
+                                className="absolute top-2 right-2 text-gray-400 hover:text-red-500 w-6 h-6 flex items-center justify-center rounded-full hover:bg-red-50 transition text-xs font-bold"
+                              >✕</button>
+                              <div className="grid grid-cols-2 gap-2 pr-6">
+                                <div>
+                                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">Color Name</label>
+                                  <input
+                                    type="text"
+                                    value={colorItem.name}
+                                    onChange={e => {
+                                      const updated = [...productForm.colors];
+                                      updated[idx] = {...updated[idx], name: e.target.value};
+                                      setProductForm({...productForm, colors: updated});
+                                    }}
+                                    className="w-full px-3 py-1.5 border border-gray-200 rounded-md focus:outline-none focus:border-[#f97316] text-[#0f172a] bg-white font-medium text-sm"
+                                    placeholder="Red"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">Image URL</label>
+                                  <input
+                                    type="url"
+                                    value={colorItem.image}
+                                    onChange={e => {
+                                      const updated = [...productForm.colors];
+                                      updated[idx] = {...updated[idx], image: e.target.value};
+                                      setProductForm({...productForm, colors: updated});
+                                    }}
+                                    className="w-full px-3 py-1.5 border border-gray-200 rounded-md focus:outline-none focus:border-[#f97316] text-[#0f172a] bg-white font-medium text-sm"
+                                    placeholder="https://..."
+                                  />
+                                </div>
+                              </div>
+                              {colorItem.image && (
+                                <div className="mt-2 w-12 h-12 bg-gray-50 rounded border border-gray-200 overflow-hidden">
+                                  <img src={colorItem.image} alt={colorItem.name} className="w-full h-full object-contain" />
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-[10px] text-gray-400 mt-1">Each color needs a name and its own product image.</p>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <button type="submit" className="w-full bg-[#0f172a] text-white font-bold py-3 rounded-xl hover:bg-[#1e293b] transition mt-2">
                   {editingProductId ? 'Update Product' : 'Save Product'}
                 </button>

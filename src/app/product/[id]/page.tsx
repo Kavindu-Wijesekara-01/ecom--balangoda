@@ -33,6 +33,9 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
   
   // Product Page Specific State
   const [orderQuantity, setOrderQuantity] = useState(1);
+  const [selectedSize, setSelectedSize] = useState("");
+  const [selectedColor, setSelectedColor] = useState("");
+  const [displayImage, setDisplayImage] = useState("");
 
   // --- CUSTOM TOAST STATE ---
   const [toast, setToast] = useState<{show: boolean, message: string, type: 'success' | 'error'}>({show: false, message: "", type: "success"});
@@ -72,6 +75,9 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
         if (currentProduct) {
           setProduct(currentProduct);
           setReviews(currentProduct.reviews ? [...currentProduct.reviews].reverse() : []);
+          setDisplayImage(currentProduct.imageUrl); // Default image
+          setSelectedSize("");
+          setSelectedColor("");
 
           const related = data.filter((p: any) => 
             p.categoryId?._id === currentProduct.categoryId?._id && p._id !== productId
@@ -100,16 +106,38 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
       showToast("Sorry, this item is currently out of stock!", "error");
       return;
     }
+
+    // Validate size/color selection for the MAIN product (not related products)
+    if (!productToAdd) {
+      if (product.sizes?.length > 0 && !selectedSize) {
+        showToast("Please select a size before adding to cart! 👕", "error");
+        return;
+      }
+      if (product.colors?.length > 0 && !selectedColor) {
+        showToast("Please select a color before adding to cart! 🎨", "error");
+        return;
+      }
+    }
     
     let newCart = [...cart];
-    const existingItemIndex = cart.findIndex(item => item._id === targetProduct._id);
+    // For clothing items, uniqueness is per product+size+color combination
+    const cartKey = productToAdd
+      ? (item: any) => item._id === targetProduct._id
+      : (item: any) => item._id === targetProduct._id && item.selectedSize === selectedSize && item.selectedColor === selectedColor;
+
+    const existingItemIndex = cart.findIndex(cartKey);
 
     if (existingItemIndex > -1) {
       const qtyToAdd = productToAdd ? 1 : orderQuantity;
       newCart[existingItemIndex].quantity = (newCart[existingItemIndex].quantity || 1) + qtyToAdd;
     } else {
       const qtyToAdd = productToAdd ? 1 : orderQuantity;
-      newCart.push({ ...targetProduct, quantity: qtyToAdd });
+      const cartItem: any = { ...targetProduct, quantity: qtyToAdd };
+      if (!productToAdd) {
+        cartItem.selectedSize = selectedSize;
+        cartItem.selectedColor = selectedColor;
+      }
+      newCart.push(cartItem);
     }
 
     setCart(newCart);
@@ -177,7 +205,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
 
   return (
     // 👇 පිටුවෙ Background එක Gray කළා 
-    <div className="min-h-screen bg-gray-50 relative pb-10">
+    <div className="min-h-screen bg-gray-50 relative">
 
       <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 ease-out flex items-center gap-3 px-5 py-3 rounded-full shadow-2xl bg-white border ${toast.show ? 'translate-y-0 opacity-100' : '-translate-y-16 opacity-0 pointer-events-none'} ${toast.type === 'success' ? 'border-emerald-200' : 'border-red-200'}`}>
         {toast.type === 'success' ? (
@@ -313,7 +341,9 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
           {/* Image Area */}
           <div className="lg:w-1/2 flex flex-col">
             <div className="w-full bg-white rounded-2xl p-6 md:p-12 border border-gray-100 relative group overflow-hidden flex justify-center items-center">
-              {product.imageUrl ? (
+              {displayImage ? (
+                <img src={displayImage} alt={product.name} className="object-contain w-full max-h-[300px] md:max-h-[450px] group-hover:scale-105 transition-transform duration-500" />
+              ) : product.imageUrl ? (
                 <img src={product.imageUrl} alt={product.name} className="object-contain w-full max-h-[300px] md:max-h-[450px] group-hover:scale-105 transition-transform duration-500" />
               ) : (
                 <span className="text-gray-400 font-medium">No Image</span>
@@ -360,9 +390,82 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
               )}
             </div>
 
-            <p className="text-gray-600 mb-8 leading-relaxed text-[13px] md:text-base font-medium whitespace-pre-wrap">
+            <p className="text-gray-600 mb-6 leading-relaxed text-[13px] md:text-base font-medium whitespace-pre-wrap">
               {product.description}
             </p>
+
+            {/* ── SIZE SELECTOR ── */}
+            {product.sizes?.length > 0 && (
+              <div className="mb-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-extrabold text-[#111827] uppercase tracking-widest">Size</span>
+                  {selectedSize && <span className="text-xs font-bold text-[#E63946] bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">{selectedSize}</span>}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {product.sizes.map((size: string) => (
+                    <button
+                      key={size}
+                      onClick={() => setSelectedSize(size === selectedSize ? "" : size)}
+                      className={`min-w-[44px] h-10 px-4 rounded-lg border-2 font-bold text-sm transition-all duration-200 ${
+                        selectedSize === size
+                          ? 'border-[#E63946] bg-[#E63946] text-white shadow-md scale-105'
+                          : 'border-gray-200 bg-white text-[#111827] hover:border-[#E63946] hover:text-[#E63946]'
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── COLOR SELECTOR ── */}
+            {product.colors?.length > 0 && (
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-extrabold text-[#111827] uppercase tracking-widest">Color</span>
+                  {selectedColor && <span className="text-xs font-bold text-[#E63946] bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">{selectedColor}</span>}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {product.colors.map((color: any) => {
+                    const colorName = color.name || color;
+                    const colorImage = color.image || "";
+                    const isSelected = selectedColor === colorName;
+                    return (
+                      <button
+                        key={colorName}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedColor("");
+                            setDisplayImage(product.imageUrl); // Reset to default
+                          } else {
+                            setSelectedColor(colorName);
+                            if (colorImage) setDisplayImage(colorImage);
+                          }
+                        }}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 font-bold text-sm transition-all duration-200 ${
+                          isSelected
+                            ? 'border-[#E63946] bg-red-50 text-[#E63946] shadow-md scale-105'
+                            : 'border-gray-200 bg-white text-[#111827] hover:border-[#E63946]'
+                        }`}
+                      >
+                        {colorImage ? (
+                          <span className="w-5 h-5 rounded-full border border-gray-300 shadow-inner shrink-0 overflow-hidden">
+                            <img src={colorImage} alt={colorName} className="w-full h-full object-cover" />
+                          </span>
+                        ) : (
+                          <span
+                            className="w-4 h-4 rounded-full border border-gray-300 shadow-inner shrink-0"
+                            style={{ backgroundColor: colorName.toLowerCase() }}
+                          />
+                        )}
+                        {colorName}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             
             {/* 👇 අලුත් Button සහ Quantity Sizes */}
             <div className="flex flex-row items-center gap-3 md:gap-5 mb-8">
@@ -530,6 +633,13 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                         <div className="min-w-0 flex-1">
                           <p className="font-bold text-sm md:text-base truncate text-[#111827]">{item.name}</p>
                           <p className="text-[#E63946] text-[12px] md:text-sm font-black">Rs {Number(item.price.toString().replace(/[^0-9.-]+/g,"")).toFixed(2)}</p>
+                          {/* Size / Color badges */}
+                          {(item.selectedSize || item.selectedColor) && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {item.selectedSize && <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full border border-gray-200">{item.selectedSize}</span>}
+                              {item.selectedColor && <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full border border-gray-200">{item.selectedColor}</span>}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center bg-white rounded-lg p-1 border border-gray-200 shadow-sm">

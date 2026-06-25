@@ -6,7 +6,7 @@ export default function Footer() {
   const router = useRouter();
 
   return (
-    <footer className="bg-[#1F2937] text-slate-300 pt-16 pb-8 border-t border-gray-700">
+    <footer className="bg-[#1F2937] text-slate-300 pt-12 border-t border-gray-700">
       <div className="container mx-auto px-6 max-w-7xl">
         
         {/* Responsive Grid: Mobile 1 column, Tablet 2, Desktop 4 */}
@@ -102,7 +102,7 @@ export default function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="pt-8 border-t border-gray-700 flex flex-col items-center gap-4 text-xs font-bold text-slate-500">
+        <div className="pt-8 pb-8 border-t border-gray-700 flex flex-col items-center gap-4 text-xs font-bold text-slate-500">
           <p>© {new Date().getFullYear()} Mr.Korea Online Shop. All Rights Reserved.</p>
         </div>
       </div>

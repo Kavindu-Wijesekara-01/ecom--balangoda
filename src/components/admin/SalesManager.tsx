@@ -42,7 +42,14 @@ export default function SalesManager() {
                 <td className="p-4">
                   <ul className="list-disc pl-4 text-gray-600 text-xs font-medium">
                     {order.items.map((item: any, i: number) => (
-                      <li key={i}>{item.name} <span className="font-bold text-[#E63946]">x{item.quantity}</span></li>
+                      <li key={i}>
+                        {item.name} <span className="font-bold text-[#E63946]">x{item.quantity}</span>
+                        {(item.selectedSize || item.selectedColor) && (
+                          <span className="ml-1 text-[9px] font-extrabold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full border border-slate-200 uppercase tracking-wide">
+                            {[item.selectedSize, item.selectedColor].filter(Boolean).join(" / ")}
+                          </span>
+                        )}
+                      </li>
                     ))}
                   </ul>
                 </td>

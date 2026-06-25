@@ -132,6 +132,13 @@ export default function HomePage() {
       setTimeout(() => router.push("/login"), 1500);
       return;
     }
+
+    // Clothing products require size/color selection — redirect to detail page
+    if ((product.sizes?.length > 0) || (product.colors?.length > 0)) {
+      showToast("Please select size & color on the product page 👕", "error");
+      setTimeout(() => router.push(`/product/${product._id}`), 800);
+      return;
+    }
     
     let newCart = [...cart];
     const existingItemIndex = cart.findIndex(item => item._id === product._id);
@@ -238,7 +245,7 @@ export default function HomePage() {
 
   return (
     // 👇 මෙතන තමයි වෙනස: bg-[#FFFFFF] වෙනුවට bg-gray-50 දැම්මා මුළු පිටුවටම
-    <div className="min-h-screen bg-gray-50 relative pb-10">
+    <div className="min-h-screen bg-gray-50 relative">
       
       <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 ease-out flex items-center gap-3 px-5 py-3 rounded-full shadow-2xl bg-white border ${toast.show ? 'translate-y-0 opacity-100' : '-translate-y-16 opacity-0 pointer-events-none'} ${toast.type === 'success' ? 'border-emerald-200' : 'border-red-200'}`}>
         {toast.type === 'success' ? (
@@ -586,6 +593,13 @@ export default function HomePage() {
                         <div className="min-w-0 flex-1">
                           <p className="font-bold text-xs md:text-sm truncate text-[#111827]">{item.name}</p>
                           <p className="text-[#E63946] text-[11px] md:text-xs font-black">Rs {Number(item.price.toString().replace(/[^0-9.-]+/g,"")).toFixed(2)}</p>
+                          {/* Size / Color badges */}
+                          {(item.selectedSize || item.selectedColor) && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {item.selectedSize && <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full border border-gray-200">{item.selectedSize}</span>}
+                              {item.selectedColor && <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full border border-gray-200">{item.selectedColor}</span>}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center bg-white rounded-md p-1 border border-gray-200 shadow-sm">

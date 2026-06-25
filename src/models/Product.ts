@@ -18,7 +18,13 @@ const ProductSchema = new mongoose.Schema({
   // මෙතන ref: 'Category' කියන්නේ අර කලින් හදපු නමමයි
   categoryId: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
   reviews: [ReviewSchema],
-  inStock: { type: Boolean, default: true } 
+  inStock: { type: Boolean, default: true },
+  // Clothing variation fields — optional, only populated for apparel products
+  sizes: [{ type: String }],
+  colors: [{
+    name: { type: String },
+    image: { type: String }
+  }]
 }, { timestamps: true });
 
 export default mongoose.models.Product || mongoose.model("Product", ProductSchema);

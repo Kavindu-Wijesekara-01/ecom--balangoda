@@ -15,7 +15,9 @@ const OrderSchema = new mongoose.Schema({
     {
       name: { type: String, required: true },
       price: { type: Number, required: true },
-      quantity: { type: Number, required: true }
+      quantity: { type: Number, required: true },
+      selectedSize: { type: String },   // Clothing variation — optional
+      selectedColor: { type: String }   // Clothing variation — optional
     }
   ],
   totalAmount: { type: Number, required: true },
