@@ -565,9 +565,6 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                 return (
                 <div key={item._id} onClick={() => router.push(`/product/${item._id}`)} className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-gray-200 transition-all duration-300 cursor-pointer group flex flex-col overflow-hidden">
                   <div className="w-full h-44 md:h-56 bg-white relative flex justify-center items-center p-3 overflow-hidden border-b border-gray-100">
-                    <div className="absolute top-3 left-3 z-10">
-                      <span className="bg-[#1F2937] text-white text-[10px] font-black px-2.5 py-1 rounded-lg tracking-widest uppercase shadow-sm truncate max-w-[100px] block">{item.categoryId?.name || "Cat"}</span>
-                    </div>
                     <div className="absolute top-3 right-3 z-10">
                       {item.inStock !== false ? (
                         <span className="bg-emerald-500 text-white text-[10px] font-black px-2.5 py-1 rounded-lg shadow-sm uppercase tracking-wider">In Stock</span>
@@ -582,7 +579,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                   
                   <div className="p-4 flex flex-col flex-1 justify-between bg-white">
                     <div className="mb-3">
-                      <h3 className="font-bold text-[13px] md:text-sm text-[#111827] line-clamp-2 leading-tight mb-2 group-hover:text-[#E63946] transition-colors" title={item.name}>{item.name}</h3>
+                      <h3 className="font-bold text-[13px] md:text-sm text-[#111827] line-clamp-2 leading-tight mb-2 transition-colors" title={item.name}>{item.name}</h3>
                       
                       <div className="flex items-center justify-between mt-1.5">
                         <p className="text-[#E63946] font-black text-base md:text-lg">Rs {Number(item.price.toString().replace(/[^0-9.-]+/g,"")).toFixed(2)}</p>

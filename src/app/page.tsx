@@ -531,7 +531,7 @@ export default function HomePage() {
                   
                   <div className="p-3 md:p-4 flex flex-col flex-1 justify-between bg-white">
                     <div className="mb-3">
-                      <h3 className="font-bold text-[12px] md:text-[14px] text-[#111827] line-clamp-2 leading-tight mb-1 md:mb-1.5 group-hover:text-[#E63946] transition-colors" title={product.name}>{product.name}</h3>
+                      <h3 className="font-bold text-[12px] md:text-[14px] text-[#111827] line-clamp-2 leading-tight mb-1 md:mb-1.5 transition-colors" title={product.name}>{product.name}</h3>
                       
                       <div className="flex items-center justify-between mt-1.5">
                         <p className="text-[#E63946] font-black text-sm md:text-lg">Rs {Number(product.price.toString().replace(/[^0-9.-]+/g,"")).toFixed(2)}</p>
