@@ -2,11 +2,13 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import Footer from "@/components/Footer";
 import CheckoutModal from "@/components/CheckoutModal";
 
 export default function ProductDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const { data: session } = useSession();
   const resolvedParams = use(params);
   const productId = resolvedParams.id;
 
@@ -42,15 +44,19 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
 
   useEffect(() => {
     const user = localStorage.getItem("user");
-    if (user) {
+    const activeUser = user || (session?.user as any)?.username;
+    if (activeUser) {
       setIsLoggedIn(true);
-      setUsername(user);
+      setUsername(activeUser);
+    } else {
+      setIsLoggedIn(false);
+      setUsername("Customer");
     }
     const savedCart = localStorage.getItem("cart");
     if (savedCart) setCart(JSON.parse(savedCart));
 
     fetchProductData();
-  }, [productId]);
+  }, [productId, session]);
 
   useEffect(() => {
     if (toast.show) {
@@ -95,11 +101,6 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
   // ---------------- CART LOGIC ----------------
   const handleAddToCart = (e?: React.MouseEvent, productToAdd?: any) => {
     if (e) e.stopPropagation();
-    if (!isLoggedIn) {
-      showToast("Please sign in first to add items!", "error");
-      setTimeout(() => router.push("/login"), 1500);
-      return;
-    }
     
     const targetProduct = productToAdd || product;
     if(targetProduct.inStock === false) {
@@ -168,11 +169,13 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
   const calculateTotal = () => cart.reduce((t, i) => t + Number(i.price.toString().replace(/[^0-9.-]+/g,"")) * (i.quantity || 1), 0);
   const totalCartItemsCount = cart.reduce((s, i) => s + (i.quantity || 1), 0);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     localStorage.removeItem("user");
+    localStorage.removeItem("auth_provider");
     setIsLoggedIn(false);
     setUsername("");
     setIsMobileMenuOpen(false);
+    await signOut({ redirect: false });
     router.push("/");
   };
 
@@ -205,7 +208,12 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
 
   return (
     // 👇 පිටුවෙ Background එක Gray කළා 
-    <div className="min-h-screen bg-gray-50 relative">
+    <div className="min-h-screen bg-slate-50 relative overflow-x-hidden">
+      {/* Premium Blurred Background Accent Blobs */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <div className="absolute -top-[10%] -left-[10%] w-[50%] h-[600px] rounded-full bg-blue-100/30 blur-3xl"></div>
+        <div className="absolute top-[20%] -right-[10%] w-[45%] h-[500px] rounded-full bg-red-100/20 blur-3xl"></div>
+      </div>
 
       <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 ease-out flex items-center gap-3 px-5 py-3 rounded-full shadow-2xl bg-white border ${toast.show ? 'translate-y-0 opacity-100' : '-translate-y-16 opacity-0 pointer-events-none'} ${toast.type === 'success' ? 'border-emerald-200' : 'border-red-200'}`}>
         {toast.type === 'success' ? (
@@ -253,7 +261,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
               <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
               </span>
-              <input type="text" placeholder="Search products..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter') router.push('/') }} className="w-full pl-12 pr-4 py-2 bg-slate-800/50 border border-slate-700 rounded-full focus:outline-none focus:border-[#E63946] text-sm text-white transition-colors"/>
+              <input type="text" placeholder="Search products..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter') router.push('/') }} className="w-full pl-12 pr-4 py-2 bg-slate-800/40 border border-slate-700/50 rounded-full focus:outline-none focus:ring-2 focus:ring-[#E63946]/40 focus:border-[#E63946] text-sm text-white transition-all duration-300"/>
             </div>
           </div>
 
@@ -262,14 +270,12 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
             </button>
 
-            {isLoggedIn && (
-              <div className="relative">
-                <button onClick={() => setIsCartOpen(true)} className="relative text-gray-300 hover:text-white p-2 transition-colors">
-                  <svg className="w-7 h-7 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                  {totalCartItemsCount > 0 && <span className="absolute top-0 right-0 bg-[#E63946] text-white text-[10px] font-bold px-2 py-0.5 rounded-full border border-[#1F2937] shadow-sm">{totalCartItemsCount}</span>}
-                </button>
-              </div>
-            )}
+            <div className="relative">
+              <button onClick={() => setIsCartOpen(true)} className="relative text-gray-300 hover:text-white p-2 transition-colors">
+                <svg className="w-7 h-7 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                {totalCartItemsCount > 0 && <span className="absolute top-0 right-0 bg-[#E63946] text-white text-[10px] font-bold px-2 py-0.5 rounded-full border border-[#1F2937] shadow-sm">{totalCartItemsCount}</span>}
+              </button>
+            </div>
 
             <div className="hidden md:flex items-center gap-5 border-l border-slate-700 pl-5">
               {isLoggedIn ? (
@@ -555,7 +561,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                <h2 className="text-xl md:text-2xl font-black text-[#111827] border-l-[5px] border-[#E63946] pl-3">More from {product.categoryId?.name}</h2>
             </div>
             
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
               {relatedProducts.map((item) => {
                 const reviewCount = item.reviews ? item.reviews.length : 0;
                 const realAvgRating = reviewCount > 0 
@@ -563,13 +569,13 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                   : 0;
 
                 return (
-                <div key={item._id} onClick={() => router.push(`/product/${item._id}`)} className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-gray-200 transition-all duration-300 cursor-pointer group flex flex-col overflow-hidden">
-                  <div className="w-full h-44 md:h-56 bg-white relative flex justify-center items-center p-3 overflow-hidden border-b border-gray-100">
+                <div key={item._id} onClick={() => router.push(`/product/${item._id}`)} className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-gray-200 hover:-translate-y-1 hover:border-gray-300 transition-all duration-300 cursor-pointer group flex flex-col overflow-hidden">
+                  <div className="w-full h-40 md:h-48 bg-slate-50/50 relative flex justify-center items-center p-1.5 md:p-2 overflow-hidden border-b border-gray-200/85">
                     <div className="absolute top-3 right-3 z-10">
                       {item.inStock !== false ? (
-                        <span className="bg-emerald-500 text-white text-[10px] font-black px-2.5 py-1 rounded-lg shadow-sm uppercase tracking-wider">In Stock</span>
+                        <span className="bg-green-50 text-green-700 text-[8px] md:text-[9px] font-medium px-2 py-0.5 rounded-full uppercase tracking-wider">In Stock</span>
                       ) : (
-                        <span className="bg-[#E63946] text-white text-[10px] font-black px-2.5 py-1 rounded-lg shadow-sm uppercase tracking-wider">Out of Stock</span>
+                        <span className="bg-rose-50 text-rose-700 text-[8px] md:text-[9px] font-medium px-2 py-0.5 rounded-full uppercase tracking-wider">Out of Stock</span>
                       )}
                     </div>
                     {item.imageUrl ? (
@@ -579,17 +585,17 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                   
                   <div className="p-4 flex flex-col flex-1 justify-between bg-white">
                     <div className="mb-3">
-                      <h3 className="font-bold text-[13px] md:text-sm text-[#111827] line-clamp-2 leading-tight mb-2 transition-colors" title={item.name}>{item.name}</h3>
+                      <h3 className="font-semibold text-xs md:text-sm text-slate-600 line-clamp-2 leading-tight mb-2 transition-colors" title={item.name}>{item.name}</h3>
                       
-                      <div className="flex items-center justify-between mt-1.5">
-                        <p className="text-[#E63946] font-black text-base md:text-lg">Rs {Number(item.price.toString().replace(/[^0-9.-]+/g,"")).toFixed(2)}</p>
+                      <div className="flex flex-col gap-1 mt-1.5 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-[#1E3A8A] font-bold text-sm md:text-base whitespace-nowrap">Rs {Number(item.price.toString().replace(/[^0-9.-]+/g,"")).toFixed(2)}</p>
                         
                         <div className="flex items-center gap-1">
                           <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                           </svg>
                           <span className="text-xs font-bold text-gray-700">
-                            {Number(realAvgRating) > 0 ? realAvgRating : <span className="text-gray-400 text-[10px] uppercase">New</span>} 
+                             {Number(realAvgRating) > 0 ? realAvgRating : <span className="bg-blue-50 text-blue-700 text-[9px] font-medium px-2 py-0.5 rounded-full uppercase tracking-wider">New</span>} 
                           </span>
                         </div>
                       </div>
@@ -600,7 +606,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                         if(item.inStock === false) { e.stopPropagation(); showToast("Sorry, out of stock!", "error"); return; }
                         handleAddToCart(e, item);
                       }}
-                      className={`w-full py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all duration-300 flex items-center justify-center gap-2 shadow-sm ${item.inStock !== false ? 'bg-[#1F2937] hover:bg-[#111827] text-white hover:shadow-md active:scale-95' : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'}`}
+                      className={`w-full py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all duration-300 flex items-center justify-center gap-2 shadow-sm ${item.inStock !== false ? 'bg-slate-800 text-white hover:bg-slate-700 hover:shadow-md active:scale-95' : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'}`}
                     >
                       {item.inStock !== false ? <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg> Add to Cart</> : "Unavailable"}
                     </button>
@@ -652,7 +658,19 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                   <div className="flex justify-between font-black mb-5 text-xl md:text-2xl text-[#111827]">
                     <span>Total Amount:</span><span className="text-[#E63946]">Rs {calculateTotal().toFixed(2)}</span>
                   </div>
-                  <button onClick={() => { setIsCartOpen(false); setIsCheckoutOpen(true); }} className="w-full bg-[#E63946] hover:bg-[#C1121F] text-white py-3.5 md:py-4 rounded-xl font-bold text-base md:text-lg hover:shadow-lg transition active:scale-[0.98]">Proceed to Secure Checkout</button>
+                  <button 
+                    onClick={() => { 
+                      setIsCartOpen(false); 
+                      if (isLoggedIn) {
+                        router.push("/checkout");
+                      } else {
+                        router.push("/login?callbackUrl=/checkout");
+                      }
+                    }} 
+                    className="w-full bg-[#E63946] hover:bg-[#C1121F] text-white py-3.5 md:py-4 rounded-xl font-bold text-base md:text-lg hover:shadow-lg transition active:scale-[0.98]"
+                  >
+                    Proceed to Secure Checkout
+                  </button>
                 </div>
               </>
             )}

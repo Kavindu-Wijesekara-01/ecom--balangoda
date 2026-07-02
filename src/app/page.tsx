@@ -2,11 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useSession, signOut } from "next-auth/react";
 import Footer from "@/components/Footer";
 import CheckoutModal from "@/components/CheckoutModal";
 
 export default function HomePage() {
   const router = useRouter();
+  const { data: session } = useSession();
   
   // User & Auth States
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -42,19 +44,24 @@ export default function HomePage() {
 
   useEffect(() => {
     const user = localStorage.getItem("user");
-    if (user) {
+    const activeUser = user || (session?.user as any)?.username;
+    
+    if (activeUser) {
       setIsLoggedIn(true);
-      setUsername(user);
+      setUsername(activeUser);
       
-      const savedWishlist = localStorage.getItem(`wishlist_${user}`);
+      const savedWishlist = localStorage.getItem(`wishlist_${activeUser}`);
       if (savedWishlist) setWishlist(JSON.parse(savedWishlist));
+    } else {
+      setIsLoggedIn(false);
+      setUsername("");
     }
     
     const savedCart = localStorage.getItem("cart");
     if (savedCart) setCart(JSON.parse(savedCart));
 
     fetchData();
-  }, []);
+  }, [session]);
 
   const fetchData = async () => {
     const cachedProducts = sessionStorage.getItem("mrkorea_products");
@@ -127,11 +134,6 @@ export default function HomePage() {
 
   const handleAddToCart = (e: React.MouseEvent, product: any) => {
     e.stopPropagation();
-    if (!isLoggedIn) {
-      showToast("Please sign in first to add items!", "error");
-      setTimeout(() => router.push("/login"), 1500);
-      return;
-    }
 
     // Clothing products require size/color selection — redirect to detail page
     if ((product.sizes?.length > 0) || (product.colors?.length > 0)) {
@@ -196,12 +198,14 @@ export default function HomePage() {
     localStorage.setItem(`wishlist_${username}`, JSON.stringify(newWishlist));
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     localStorage.removeItem("user");
+    localStorage.removeItem("auth_provider");
     setIsLoggedIn(false);
     setUsername("");
     setWishlist([]); 
     setIsMobileMenuOpen(false);
+    await signOut({ redirect: false });
     router.push("/");
   };
 
@@ -245,7 +249,12 @@ export default function HomePage() {
 
   return (
     // 👇 මෙතන තමයි වෙනස: bg-[#FFFFFF] වෙනුවට bg-gray-50 දැම්මා මුළු පිටුවටම
-    <div className="min-h-screen bg-gray-50 relative">
+    <div className="min-h-screen bg-slate-50 relative overflow-x-hidden">
+      {/* Premium Blurred Background Accent Blobs */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <div className="absolute -top-[10%] -left-[10%] w-[50%] h-[600px] rounded-full bg-blue-100/30 blur-3xl"></div>
+        <div className="absolute top-[20%] -right-[10%] w-[45%] h-[500px] rounded-full bg-red-100/20 blur-3xl"></div>
+      </div>
       
       <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 ease-out flex items-center gap-3 px-5 py-3 rounded-full shadow-2xl bg-white border ${toast.show ? 'translate-y-0 opacity-100' : '-translate-y-16 opacity-0 pointer-events-none'} ${toast.type === 'success' ? 'border-emerald-200' : 'border-red-200'}`}>
         {toast.type === 'success' ? (
@@ -302,7 +311,7 @@ export default function HomePage() {
                 value={searchQuery} 
                 onChange={(e) => setSearchQuery(e.target.value)} 
                 onKeyDown={(e) => { if(e.key === 'Enter') router.push('/') }}
-                className="w-full pl-12 pr-4 py-2 bg-slate-800/50 border border-slate-700 rounded-full focus:outline-none focus:border-[#E63946] text-sm text-white transition-colors"
+                className="w-full pl-12 pr-4 py-2 bg-slate-800/40 border border-slate-700/50 rounded-full focus:outline-none focus:ring-2 focus:ring-[#E63946]/40 focus:border-[#E63946] text-sm text-white transition-all duration-300"
               />
             </div>
           </div>
@@ -312,16 +321,12 @@ export default function HomePage() {
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
             </button>
 
-            {isLoggedIn && (
-              <>
-                <div className="relative">
-                  <button onClick={() => setIsCartOpen(true)} className="relative text-gray-300 hover:text-white p-2 transition-colors">
-                    <svg className="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                    {totalCartItemsCount > 0 && <span className="absolute top-0 right-0 bg-[#E63946] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-[#1F2937] shadow-sm">{totalCartItemsCount}</span>}
-                  </button>
-                </div>
-              </>
-            )}
+            <div className="relative">
+              <button onClick={() => setIsCartOpen(true)} className="relative text-gray-300 hover:text-white p-2 transition-colors">
+                <svg className="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                {totalCartItemsCount > 0 && <span className="absolute top-0 right-0 bg-[#E63946] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-[#1F2937] shadow-sm">{totalCartItemsCount}</span>}
+              </button>
+            </div>
 
             <div className="hidden md:flex items-center gap-5 border-l border-slate-700 pl-5">
               {isLoggedIn ? (
@@ -391,12 +396,12 @@ export default function HomePage() {
       )}
 
       <div className="container mx-auto px-4 md:px-6 mt-4 max-w-7xl">
-        <div className="hidden md:flex bg-white p-4 rounded-xl shadow-sm border border-gray-200 gap-4 items-center justify-between border-t-2 border-t-[#E63946]">
+        <div className="hidden md:flex bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-100 gap-4 items-center justify-between">
           <div className="flex gap-4">
             <div className="flex flex-col">
               <label className="text-[10px] uppercase font-extrabold text-gray-500 mb-1 ml-1 tracking-wider">Category</label>
               <div className="relative">
-                <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="w-48 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-semibold text-[#111827] focus:outline-none focus:border-[#E63946] cursor-pointer hover:bg-gray-100 transition appearance-none pr-8">
+                <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="w-48 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-semibold text-[#111827] focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-gray-300 cursor-pointer hover:bg-gray-50 transition appearance-none pr-8">
                   <option value="">All Categories</option>
                   {categories.map(cat => <option key={cat._id} value={cat._id}>{cat.name}</option>)}
                 </select>
@@ -408,7 +413,7 @@ export default function HomePage() {
             <div className="flex flex-col">
               <label className="text-[10px] uppercase font-extrabold text-gray-500 mb-1 ml-1 tracking-wider">Sort By</label>
               <div className="relative">
-                <select value={sortOption} onChange={(e) => setSortOption(e.target.value)} className="w-48 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-semibold text-[#111827] focus:outline-none focus:border-[#E63946] cursor-pointer hover:bg-gray-100 transition appearance-none pr-8">
+                <select value={sortOption} onChange={(e) => setSortOption(e.target.value)} className="w-48 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-semibold text-[#111827] focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-gray-300 cursor-pointer hover:bg-gray-50 transition appearance-none pr-8">
                   <option value="latest">Latest Products</option>
                   <option value="low-high">Price: Low to High</option>
                   <option value="high-low">Price: High to Low</option>
@@ -422,16 +427,16 @@ export default function HomePage() {
           <div className="flex flex-col">
             <label className="text-[10px] uppercase font-extrabold text-gray-500 mb-1 ml-1 tracking-wider">Price Range (Rs)</label>
             <div className="flex items-center gap-2">
-              <input type="number" placeholder="Min" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} className="w-24 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-semibold text-[#111827] focus:outline-none focus:border-[#E63946]"/>
+              <input type="number" placeholder="Min" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} className="w-24 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-semibold text-[#111827] focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-gray-300"/>
               <span className="text-gray-400 font-bold">-</span>
-              <input type="number" placeholder="Max" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} className="w-24 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-semibold text-[#111827] focus:outline-none focus:border-[#E63946]"/>
+              <input type="number" placeholder="Max" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} className="w-24 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-semibold text-[#111827] focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-gray-300"/>
             </div>
           </div>
         </div>
 
         <div className="md:hidden flex overflow-x-auto gap-2 items-center py-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <div className="relative shrink-0">
-            <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="w-full bg-white border border-gray-200 text-[#111827] text-[11px] font-bold py-2 px-4 pr-8 rounded-full shadow-sm focus:outline-none focus:border-[#E63946] appearance-none cursor-pointer text-left min-w-[130px]">
+            <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="w-full bg-white border border-gray-200 text-[#111827] text-[11px] font-bold py-2 px-4 pr-8 rounded-full shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-gray-300 appearance-none cursor-pointer text-left min-w-[130px]">
               <option value="">All Categories</option>
               {categories.map(cat => <option key={cat._id} value={cat._id}>{cat.name}</option>)}
             </select>
@@ -440,7 +445,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="relative shrink-0">
-            <select value={sortOption} onChange={(e) => setSortOption(e.target.value)} className="w-full bg-white border border-gray-200 text-[#111827] text-[11px] font-bold py-2 px-4 pr-8 rounded-full shadow-sm focus:outline-none focus:border-[#E63946] appearance-none cursor-pointer text-left min-w-[130px]">
+            <select value={sortOption} onChange={(e) => setSortOption(e.target.value)} className="w-full bg-white border border-gray-200 text-[#111827] text-[11px] font-bold py-2 px-4 pr-8 rounded-full shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-gray-300 appearance-none cursor-pointer text-left min-w-[130px]">
               <option value="latest">Latest Items</option>
               <option value="low-high">Price: Low - High</option>
               <option value="high-low">Price: High - Low</option>
@@ -467,7 +472,7 @@ export default function HomePage() {
         </div>
         
         {isLoading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
             {[...Array(8)].map((_, i) => (
               <div key={i} className="bg-white rounded-xl md:rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden animate-pulse">
                 <div className="w-full h-44 sm:h-52 md:h-64 bg-slate-200"></div>
@@ -490,7 +495,7 @@ export default function HomePage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
               {currentlyVisibleProducts.map((product) => {
                 
                 // Real-time Reviews Calculate 
@@ -503,7 +508,7 @@ export default function HomePage() {
                 <div 
                   key={product._id} 
                   onClick={() => router.push(`/product/${product._id}`)} 
-                  className="bg-white rounded-xl md:rounded-2xl shadow-sm hover:shadow-lg border border-gray-200 hover:border-gray-300 transition-all duration-300 cursor-pointer group flex flex-col overflow-hidden relative"
+                  className="bg-white rounded-xl md:rounded-2xl shadow-sm hover:shadow-lg border border-gray-200 hover:-translate-y-1 hover:border-gray-300 transition-all duration-300 cursor-pointer group flex flex-col overflow-hidden relative"
                 >
                   <button 
                     onClick={(e) => toggleWishlist(e, product)}
@@ -514,12 +519,12 @@ export default function HomePage() {
                     </svg>
                   </button>
 
-                  <div className="w-full h-44 sm:h-52 md:h-64 bg-white relative flex justify-center items-center p-0 overflow-hidden border-b border-gray-100">
+                  <div className="w-full h-40 sm:h-48 md:h-52 bg-slate-50/50 relative flex justify-center items-center p-1.5 md:p-2 overflow-hidden border-b border-gray-200/80">
                     <div className="absolute top-2 right-2 md:top-3 md:right-3 z-10">
                       {product.inStock !== false ? (
-                        <span className="bg-emerald-500 text-white text-[8px] md:text-[9px] font-black px-2 py-0.5 md:px-2 md:py-1 rounded shadow-sm uppercase tracking-wider">In Stock</span>
+                        <span className="bg-green-50 text-green-700 text-[8px] md:text-[9px] font-medium px-2 py-0.5 rounded-full uppercase tracking-wider">In Stock</span>
                       ) : (
-                        <span className="bg-[#E63946] text-white text-[8px] md:text-[9px] font-black px-2 py-0.5 md:px-2 md:py-1 rounded shadow-sm uppercase tracking-wider">Out of Stock</span>
+                        <span className="bg-rose-50 text-rose-700 text-[8px] md:text-[9px] font-medium px-2 py-0.5 rounded-full uppercase tracking-wider">Out of Stock</span>
                       )}
                     </div>
                     {product.imageUrl ? (
@@ -531,17 +536,17 @@ export default function HomePage() {
                   
                   <div className="p-3 md:p-4 flex flex-col flex-1 justify-between bg-white">
                     <div className="mb-3">
-                      <h3 className="font-bold text-[12px] md:text-[14px] text-[#111827] line-clamp-2 leading-tight mb-1 md:mb-1.5 transition-colors" title={product.name}>{product.name}</h3>
+                       <h3 className="font-semibold text-xs md:text-sm text-slate-600 line-clamp-2 leading-tight mb-1 md:mb-1.5 transition-colors" title={product.name}>{product.name}</h3>
                       
-                      <div className="flex items-center justify-between mt-1.5">
-                        <p className="text-[#E63946] font-black text-sm md:text-lg">Rs {Number(product.price.toString().replace(/[^0-9.-]+/g,"")).toFixed(2)}</p>
+                      <div className="flex flex-col gap-1 mt-1.5 sm:flex-row sm:items-center sm:justify-between">
+                         <p className="text-[#1E3A8A] font-bold text-sm md:text-base whitespace-nowrap">Rs {Number(product.price.toString().replace(/[^0-9.-]+/g,"")).toFixed(2)}</p>
                         
                         <div className="flex items-center gap-1 md:gap-1.5">
                           <svg className="w-4 h-4 md:w-5 md:h-5 text-yellow-400 drop-shadow-sm" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                           </svg>
                           <span className="text-xs md:text-sm font-bold text-gray-700">
-                            {Number(realAvgRating) > 0 ? realAvgRating : <span className="text-gray-400 text-[10px] md:text-xs uppercase tracking-wider">New</span>} 
+                             {Number(realAvgRating) > 0 ? realAvgRating : <span className="bg-blue-50 text-blue-700 text-[9px] font-medium px-2 py-0.5 rounded-full uppercase tracking-wider">New</span>} 
                             {reviewCount > 0 && <span className="text-gray-400 font-semibold ml-1">({reviewCount})</span>}
                           </span>
                         </div>
@@ -554,7 +559,7 @@ export default function HomePage() {
                         if(product.inStock === false) { e.stopPropagation(); showToast("Sorry, this item is out of stock!", "error"); return; }
                         handleAddToCart(e, product);
                       }}
-                      className={`w-full py-2 md:py-2.5 rounded-lg font-bold text-[11px] md:text-[13px] transition-all duration-300 flex items-center justify-center gap-1.5 shadow-sm mt-1 ${product.inStock !== false ? 'bg-[#1F2937] hover:bg-[#111827] text-white hover:shadow-md active:scale-95' : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'}`}
+                      className={`w-full py-2 md:py-2.5 rounded-lg font-bold text-[11px] md:text-[13px] transition-all duration-300 flex items-center justify-center gap-1.5 shadow-sm mt-1.5 ${product.inStock !== false ? 'bg-slate-800 text-white hover:bg-slate-700 hover:shadow-md active:scale-95' : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'}`}
                     >
                       {product.inStock !== false ? (
                         <><svg className="w-3.5 h-3.5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg> <span className="hidden sm:inline">Add to Cart</span><span className="sm:hidden">Add</span></>
@@ -615,7 +620,19 @@ export default function HomePage() {
                   <div className="flex justify-between font-black mb-4 text-lg md:text-xl text-[#111827]">
                     <span>Total Amount:</span><span className="text-[#E63946]">Rs {calculateTotal().toFixed(2)}</span>
                   </div>
-                  <button onClick={() => { setIsCartOpen(false); setIsCheckoutOpen(true); }} className="w-full bg-[#E63946] hover:bg-[#C1121F] text-white py-3 rounded-lg font-bold text-sm md:text-base hover:shadow-md transition active:scale-[0.98]">Proceed to Secure Checkout</button>
+                  <button 
+                    onClick={() => { 
+                      setIsCartOpen(false); 
+                      if (isLoggedIn) {
+                        router.push("/checkout");
+                      } else {
+                        router.push("/login?callbackUrl=/checkout");
+                      }
+                    }} 
+                    className="w-full bg-[#E63946] hover:bg-[#C1121F] text-white py-3 rounded-lg font-bold text-sm md:text-base hover:shadow-md transition active:scale-[0.98]"
+                  >
+                    Proceed to Secure Checkout
+                  </button>
                 </div>
               </>
             )}
