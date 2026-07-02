@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import SalesManager from "@/components/admin/SalesManager";
 import AnalyticsManager from "@/components/admin/AnalyticsManager";
 import BannerManager from "@/components/admin/BannerManager";
+import CloudinaryUpload from "@/components/admin/CloudinaryUpload";
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -125,6 +126,10 @@ export default function AdminDashboard() {
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!productForm.imageUrl) {
+      alert("Please upload a product image before saving.");
+      return;
+    }
     const method = editingProductId ? "PATCH" : "POST";
     const url = editingProductId ? `/api/products/${editingProductId}` : "/api/products";
 
@@ -517,8 +522,12 @@ export default function AdminDashboard() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Image URL</label>
-                  <input required type="url" value={productForm.imageUrl} onChange={e => setProductForm({...productForm, imageUrl: e.target.value})} className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#f97316] text-[#0f172a] bg-white font-medium" placeholder="https://..." />
+                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Product Image</label>
+                  <CloudinaryUpload
+                    value={productForm.imageUrl}
+                    onUpload={(url) => setProductForm({ ...productForm, imageUrl: url })}
+                    accentColor="orange"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Description</label>
@@ -593,25 +602,19 @@ export default function AdminDashboard() {
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">Image URL</label>
-                                  <input
-                                    type="url"
+                                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">Color Image</label>
+                                  <CloudinaryUpload
+                                    compact
                                     value={colorItem.image}
-                                    onChange={e => {
+                                    onUpload={(url) => {
                                       const updated = [...productForm.colors];
-                                      updated[idx] = {...updated[idx], image: e.target.value};
-                                      setProductForm({...productForm, colors: updated});
+                                      updated[idx] = { ...updated[idx], image: url };
+                                      setProductForm({ ...productForm, colors: updated });
                                     }}
-                                    className="w-full px-3 py-1.5 border border-gray-200 rounded-md focus:outline-none focus:border-[#f97316] text-[#0f172a] bg-white font-medium text-sm"
-                                    placeholder="https://..."
+                                    accentColor="orange"
                                   />
                                 </div>
                               </div>
-                              {colorItem.image && (
-                                <div className="mt-2 w-12 h-12 bg-gray-50 rounded border border-gray-200 overflow-hidden">
-                                  <img src={colorItem.image} alt={colorItem.name} className="w-full h-full object-contain" />
-                                </div>
-                              )}
                             </div>
                           ))}
                         </div>

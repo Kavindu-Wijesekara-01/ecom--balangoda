@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import CloudinaryUpload from "./CloudinaryUpload";
 
 export default function ProductManager() {
   const [products, setProducts] = useState<any[]>([]);
@@ -28,6 +29,10 @@ export default function ProductManager() {
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!productData.imageUrl) {
+      alert("Please upload a product image before saving.");
+      return;
+    }
     const url = editProductId ? `/api/products/${editProductId}` : "/api/products";
     const method = editProductId ? "PUT" : "POST";
 
@@ -120,9 +125,12 @@ export default function ProductManager() {
               </select>
             </div>
             <div>
-              <label className="block text-[#0f172a] font-semibold mb-2">Image URL</label>
-              <input type="url" required value={productData.imageUrl} onChange={(e) => setProductData({...productData, imageUrl: e.target.value})}
-                className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#f97316] text-gray-900 font-medium bg-white" placeholder="https://..." />
+              <label className="block text-[#0f172a] font-semibold mb-2">Product Image</label>
+              <CloudinaryUpload
+                value={productData.imageUrl}
+                onUpload={(url) => setProductData({ ...productData, imageUrl: url })}
+                accentColor="orange"
+              />
             </div>
           </div>
 

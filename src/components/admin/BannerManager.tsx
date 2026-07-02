@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import CloudinaryUpload from "./CloudinaryUpload";
 
 export default function BannerManager() {
   const [banners, setBanners] = useState<any[]>([]);
@@ -17,6 +18,10 @@ export default function BannerManager() {
 
   const handleSaveBanner = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!imageUrl) {
+      alert("Please upload a banner image before saving.");
+      return;
+    }
     const res = await fetch("/api/banners", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -44,9 +49,12 @@ export default function BannerManager() {
         <h3 className="text-xl font-bold mb-4 text-gray-800">Add Promotional Banner</h3>
         <form onSubmit={handleSaveBanner} className="space-y-4">
           <div>
-            <label className="block text-[#0f172a] font-semibold mb-2">Banner Image URL (Size: 1920x600 recommended)</label>
-            <input type="url" required value={imageUrl} onChange={(e) => setImageUrl(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#10b981] text-gray-900 font-medium" placeholder="https://..." />
+            <label className="block text-[#0f172a] font-semibold mb-2">Banner Image (Size: 1920x600 recommended)</label>
+            <CloudinaryUpload
+              value={imageUrl}
+              onUpload={(url) => setImageUrl(url)}
+              accentColor="emerald"
+            />
           </div>
           <button type="submit" className="bg-[#10b981] text-white px-6 py-2 rounded font-bold hover:bg-emerald-600 transition">
             Add Banner
