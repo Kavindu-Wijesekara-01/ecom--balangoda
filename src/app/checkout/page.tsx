@@ -143,6 +143,8 @@ export default function CheckoutPage() {
       });
 
       if (res.ok) {
+        // Save email so My Orders page can fetch this customer's orders
+        localStorage.setItem("user_email", formData.email);
         setCompletedOrder({ ...formData, orderId: generatedOrderId, time: currentTime });
       } else {
         showToast("Something went wrong. Please try again.", "error");

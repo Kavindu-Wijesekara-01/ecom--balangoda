@@ -26,7 +26,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, totalAmount, onSu
 
   if (!isOpen) return null;
 
-  const SELLER_WHATSAPP = "94770086050"; 
+  const SELLER_WHATSAPP = "0711222555"; 
   const STORE_CONTACT = "0711222333"; 
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -102,6 +102,8 @@ export default function CheckoutModal({ isOpen, onClose, cart, totalAmount, onSu
       });
 
       if (res.ok) {
+        // Save email so My Orders page can fetch this customer's orders
+        localStorage.setItem("user_email", formData.email);
         setCompletedOrder({ ...formData, orderId: generatedOrderId, time: currentTime });
       } else {
         alert("Something went wrong. Please try again.");

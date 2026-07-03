@@ -4,10 +4,15 @@ import Order from "@/models/Order";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await connectToDatabase();
-    const orders = await Order.find({}).sort({ createdAt: -1 });
+    const { searchParams } = new URL(req.url);
+    const email = searchParams.get("email");
+    
+    // If email param provided, filter by customer email (for customer dashboard)
+    const query = email ? { "customer.email": email } : {};
+    const orders = await Order.find(query).sort({ createdAt: -1 });
     return NextResponse.json(orders);
   } catch (error) {
     return NextResponse.json({ error: "Failed to fetch orders" }, { status: 500 });

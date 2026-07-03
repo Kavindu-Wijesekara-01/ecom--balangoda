@@ -2,9 +2,10 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import Footer from "@/components/Footer";
 import CheckoutModal from "@/components/CheckoutModal";
+import Navbar from "@/components/Navbar";
 
 export default function ProductDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -29,10 +30,8 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
   const [cart, setCart] = useState<any[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); 
-  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   // Product Page Specific State
   const [orderQuantity, setOrderQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState("");
@@ -41,6 +40,8 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
 
   // --- CUSTOM TOAST STATE ---
   const [toast, setToast] = useState<{show: boolean, message: string, type: 'success' | 'error'}>({show: false, message: "", type: "success"});
+
+  const calculateTotal = () => cart.reduce((t, i) => t + Number(i.price.toString().replace(/[^0-9.-]+/g,"")) * (i.quantity || 1), 0);
 
   useEffect(() => {
     const user = localStorage.getItem("user");
@@ -166,18 +167,6 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
     localStorage.setItem("cart", JSON.stringify(newCart));
   };
 
-  const calculateTotal = () => cart.reduce((t, i) => t + Number(i.price.toString().replace(/[^0-9.-]+/g,"")) * (i.quantity || 1), 0);
-  const totalCartItemsCount = cart.reduce((s, i) => s + (i.quantity || 1), 0);
-
-  const handleLogout = async () => {
-    localStorage.removeItem("user");
-    localStorage.removeItem("auth_provider");
-    setIsLoggedIn(false);
-    setUsername("");
-    setIsMobileMenuOpen(false);
-    await signOut({ redirect: false });
-    router.push("/");
-  };
 
   // ---------------- REVIEW LOGIC ----------------
   const submitReview = async (e: React.FormEvent) => {
@@ -224,106 +213,10 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
         <span className="font-bold text-[13px] md:text-sm text-[#111827] whitespace-nowrap">{toast.message}</span>
       </div>
       
-      {/* ---------------- NAVBAR ---------------- */}
-      <nav className="bg-[#1F2937] text-white py-3 shadow-lg sticky top-0 z-50 border-b border-gray-800">
-        <div className="container mx-auto px-4 md:px-6 max-w-7xl flex justify-between items-center gap-4">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden text-gray-300 hover:text-white focus:outline-none p-1">
-              <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={isMobileMenuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"}></path></svg>
-            </button>
-            {/* 👇 අලුත් ලෝගෝ එක */}
-            <h1 
-              className="text-2xl md:text-3xl font-black tracking-widest cursor-pointer flex items-center" 
-              onClick={() => router.push('/')}
-              style={{
-                color: '#E63946',
-                //WebkitTextStroke: '1px #FFFFFF',
-                filter: 'drop-shadow(2px 3px 2px rgba(0,0,0,0.5))'
-              }}
-            >
-              MR.K
-              <span 
-                style={{
-                  background: 'linear-gradient(to bottom, #E63946 50%, #1D4ED8 50%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  WebkitTextStroke: '0.5px #FFFFFF'
-                }}
-              >
-                O
-              </span>
-              REA
-            </h1>
-          </div>
-
-          <div className="flex-1 max-w-2xl px-4 hidden md:block">
-            <div className="relative group">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-              </span>
-              <input type="text" placeholder="Search products..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter') router.push('/') }} className="w-full pl-12 pr-4 py-2 bg-slate-800/40 border border-slate-700/50 rounded-full focus:outline-none focus:ring-2 focus:ring-[#E63946]/40 focus:border-[#E63946] text-sm text-white transition-all duration-300"/>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 md:gap-6">
-            <button onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)} className="md:hidden text-gray-300 hover:text-white p-2">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-            </button>
-
-            <div className="relative">
-              <button onClick={() => setIsCartOpen(true)} className="relative text-gray-300 hover:text-white p-2 transition-colors">
-                <svg className="w-7 h-7 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                {totalCartItemsCount > 0 && <span className="absolute top-0 right-0 bg-[#E63946] text-white text-[10px] font-bold px-2 py-0.5 rounded-full border border-[#1F2937] shadow-sm">{totalCartItemsCount}</span>}
-              </button>
-            </div>
-
-            <div className="hidden md:flex items-center gap-5 border-l border-slate-700 pl-5">
-              {isLoggedIn ? (
-                <>
-                  <div className="flex flex-col text-right">
-                    <span className="text-[10px] text-gray-400 uppercase tracking-wider">Welcome</span>
-                    <span className="font-semibold text-sm">{username}</span>
-                  </div>
-                  {username === "mrkorea" && <button onClick={() => router.push('/admin/dashboard')} className="bg-blue-500/10 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded text-xs font-bold hover:bg-blue-500/20 transition-colors">Admin Panel</button>}
-                  <button onClick={handleLogout} className="text-gray-400 hover:text-red-400 flex items-center gap-2 text-sm font-medium transition-colors"><span className="hidden lg:inline">Sign Out</span></button>
-                </>
-              ) : (
-                <>
-                  <button onClick={() => router.push('/login')} className="text-gray-200 hover:text-white text-sm font-medium transition-colors">Sign In</button>
-                  <button onClick={() => router.push('/register')} className="bg-[#E63946] text-white px-5 py-2 rounded-full text-sm font-bold hover:bg-[#C1121F] transition-colors">Create Account</button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Overlays */}
-        <div className={`md:hidden absolute top-full left-0 w-full bg-[#1F2937] transition-all duration-300 overflow-hidden z-40 ${isMobileSearchOpen ? 'max-h-20 py-3 border-b border-slate-800 shadow-xl' : 'max-h-0 py-0'}`}>
-          <div className="px-4">
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></span>
-              <input type="text" placeholder="Search products..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter') router.push('/') }} className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-[#E63946]"/>
-            </div>
-          </div>
-        </div>
-
-        <div className={`md:hidden absolute top-full left-0 w-full bg-[#1F2937] border-b border-slate-800 transition-all duration-300 overflow-hidden shadow-2xl z-30 ${isMobileMenuOpen ? 'max-h-[300px] py-4' : 'max-h-0 py-0'}`}>
-          <div className="px-4 space-y-4">
-            {isLoggedIn ? (
-              <div className="flex flex-col gap-3">
-                <p className="text-sm text-gray-400">Logged in as <span className="font-bold text-white">{username}</span></p>
-                {username === "mrkorea" && <button onClick={() => router.push('/admin/dashboard')} className="w-full bg-blue-600 py-2.5 rounded-lg text-sm font-bold text-white transition-colors">Go to Admin Panel</button>}
-                <button onClick={handleLogout} className="w-full bg-red-600/20 text-red-500 py-2.5 rounded-lg text-sm font-bold border border-red-500/30 transition-colors">Sign Out</button>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3 pt-2">
-                <button onClick={() => router.push('/login')} className="w-full bg-slate-800 border border-slate-700 py-2.5 rounded-lg text-sm font-bold text-white transition-colors">Sign In</button>
-                <button onClick={() => router.push('/register')} className="w-full bg-[#E63946] py-2.5 rounded-lg text-sm font-bold text-white hover:bg-[#C1121F] transition-colors">Register</button>
-              </div>
-            )}
-          </div>
-        </div>
-      </nav>
+      <Navbar
+        cart={cart}
+        onCartOpen={() => setIsCartOpen(true)}
+      />
 
       {/* ---------------- MAIN PRODUCT CONTENT ---------------- */}
       <main className="container mx-auto px-4 md:px-6 mt-4 md:mt-8 max-w-7xl">
