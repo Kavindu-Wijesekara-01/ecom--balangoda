@@ -49,7 +49,7 @@ export default function BannerManager() {
         <h3 className="text-xl font-bold mb-4 text-gray-800">Add Promotional Banner</h3>
         <form onSubmit={handleSaveBanner} className="space-y-4">
           <div>
-            <label className="block text-[#0f172a] font-semibold mb-2">Banner Image (Size: 1920x600 recommended)</label>
+            <label className="block text-[#0f172a] font-semibold mb-2">Banner Image (Required Size: 1976x688 for perfect display on all devices)</label>
             <CloudinaryUpload
               value={imageUrl}
               onUpload={(url) => setImageUrl(url)}
@@ -75,7 +75,9 @@ export default function BannerManager() {
             {banners.map((banner) => (
               <tr key={banner._id} className="hover:bg-gray-50 border-b">
                 <td className="p-4">
-                  <img src={banner.imageUrl} alt="Banner" className="w-full h-24 object-cover rounded border" />
+                  <div className="w-64 aspect-[1976/688] relative overflow-hidden rounded border bg-slate-100">
+                    <img src={banner.imageUrl} alt="Banner" className="w-full h-full object-cover" />
+                  </div>
                 </td>
                 <td className="p-4 text-right">
                   <button onClick={() => handleDeleteBanner(banner._id)} className="text-red-600 font-bold hover:underline">Delete</button>

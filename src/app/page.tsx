@@ -247,25 +247,25 @@ export default function HomePage() {
 
       {banners.length > 0 && !searchQuery && (
         <div className="container mx-auto px-4 md:px-6 mt-4 md:mt-6 max-w-7xl">
-          <div className="w-full relative overflow-hidden rounded-xl md:rounded-2xl shadow-md">
+            <div className="w-full aspect-[1976/688] relative overflow-hidden rounded-xl md:rounded-2xl shadow-md bg-slate-100">
             {banners.map((banner, index) => (
               <div 
                 key={banner._id} 
-                className={`transition-opacity duration-1000 ease-in-out ${
-                  index === currentSlide ? 'opacity-100 z-10 relative' : 'opacity-0 z-0 absolute inset-0'
+                className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                  index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
                 }`}
               >
                 <img 
                   src={banner.imageUrl} 
                   alt="Promotion Banner" 
                   loading="lazy" 
-                  className="w-full h-auto bg-gray-100" 
+                  className="w-full h-full object-cover" 
                 />
               </div>
             ))}
             <div className="absolute bottom-3 left-0 right-0 z-20 flex justify-center gap-2">
               {banners.map((_, index) => (
-                <button key={index} onClick={() => setCurrentSlide(index)} className={`h-1.5 md:h-2 rounded-full transition-all shadow-sm ${index === currentSlide ? 'bg-[#E63946] w-6' : 'bg-white/80 w-2'}`} />
+                <button key={index} onClick={() => setCurrentSlide(index)} className={`h-1.5 md:h-2 rounded-full transition-all shadow-sm cursor-pointer ${index === currentSlide ? 'bg-[#E63946] w-6' : 'bg-white/80 w-2'}`} />
               ))}
             </div>
           </div>
