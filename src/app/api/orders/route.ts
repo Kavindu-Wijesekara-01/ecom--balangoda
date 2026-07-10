@@ -9,12 +9,19 @@ export async function GET(req: Request) {
     await connectToDatabase();
     const { searchParams } = new URL(req.url);
     const email = searchParams.get("email");
+    const orderId = searchParams.get("orderId");
     
-    // If email param provided, filter by customer email (for customer dashboard)
-    const query = email ? { "customer.email": email } : {};
+    let query = {};
+    if (orderId) {
+      query = { orderId };
+    } else if (email) {
+      query = { "customer.email": email };
+    }
+    
     const orders = await Order.find(query).sort({ createdAt: -1 });
     return NextResponse.json(orders);
   } catch (error) {
+
     return NextResponse.json({ error: "Failed to fetch orders" }, { status: 500 });
   }
 }
@@ -45,3 +52,15 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: "Delete failed" }, { status: 500 });
   }
 }
+
+export async function PUT(req: Request) {
+  try {
+    await connectToDatabase();
+    const { id, status } = await req.json();
+    const updatedOrder = await Order.findByIdAndUpdate(id, { status }, { new: true });
+    return NextResponse.json(updatedOrder);
+  } catch (error) {
+    console.error("Order Update Error:", error);
+    return NextResponse.json({ error: "Failed to update order" }, { status: 500 });
+  }
+}

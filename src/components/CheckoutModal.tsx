@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import jsPDF from "jspdf";
 
 interface CheckoutModalProps {
@@ -10,6 +10,8 @@ interface CheckoutModalProps {
   totalAmount: string;
   onSuccess: () => void;
 }
+
+const DELIVERY_FEE = 400;
 
 export default function CheckoutModal({ isOpen, onClose, cart, totalAmount, onSuccess }: CheckoutModalProps) {
   const [formData, setFormData] = useState({
@@ -23,11 +25,24 @@ export default function CheckoutModal({ isOpen, onClose, cart, totalAmount, onSu
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [completedOrder, setCompletedOrder] = useState<any>(null);
+  const [payhereParams, setPayhereParams] = useState<Record<string, string> | null>(null);
+  const payhereFormRef = useRef<HTMLFormElement>(null);
+
+  const SELLER_WHATSAPP = "94711222333";
+  const STORE_CONTACT = "0711222555";
+  const PAYHERE_MODE = process.env.NEXT_PUBLIC_PAYHERE_MODE || "sandbox";
+  const PAYHERE_URL = PAYHERE_MODE === "live"
+    ? "https://www.payhere.lk/pay/checkout"
+    : "https://sandbox.payhere.lk/pay/checkout";
+
+  // Auto-submit PayHere form when params are ready
+  useEffect(() => {
+    if (payhereParams && payhereFormRef.current) {
+      payhereFormRef.current.submit();
+    }
+  }, [payhereParams]);
 
   if (!isOpen) return null;
-
-  const SELLER_WHATSAPP = "0711222555"; 
-  const STORE_CONTACT = "0711222333"; 
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -42,7 +57,9 @@ export default function CheckoutModal({ isOpen, onClose, cart, totalAmount, onSu
       })
       .join("\n");
 
-    const paymentLabel = orderData.paymentMethod === "cod" ? "Cash on Delivery" : "Bank Transfer";
+    const paymentLabel = orderData.paymentMethod === "cod" ? "Cash on Delivery" : "Online Payment (PayHere)";
+    const subtotal = Number(totalAmount);
+    const finalTotal = subtotal + DELIVERY_FEE;
 
     return (
       `🛒 *New Order - MR.KOREA*\n` +
@@ -55,7 +72,9 @@ export default function CheckoutModal({ isOpen, onClose, cart, totalAmount, onSu
       `  WhatsApp : ${orderData.whatsapp}\n\n` +
       `📦 *Order Items*\n` +
       `${itemLines}\n\n` +
-      `💰 *Total : Rs ${totalAmount}*\n` +
+      `💵 *Subtotal :* Rs ${subtotal.toLocaleString()}\n` +
+      `🚚 *Delivery Fee :* Rs ${DELIVERY_FEE.toLocaleString()}\n` +
+      `💰 *Total Amount : Rs ${finalTotal.toLocaleString()}*\n` +
       `💳 *Payment : ${paymentLabel}*\n\n` +
       `🚚 *Delivery Address*\n` +
       `  ${orderData.address}\n\n` +
@@ -80,6 +99,10 @@ export default function CheckoutModal({ isOpen, onClose, cart, totalAmount, onSu
         selectedColor: item.selectedColor || ""
       }));
 
+      const paymentMethodValue = formData.paymentMethod === "payhere" ? "payhere" : "cod";
+      const subtotal = Number(totalAmount);
+      const finalTotal = subtotal + DELIVERY_FEE;
+
       const newOrderData = {
         orderId: generatedOrderId,
         time: currentTime,
@@ -90,9 +113,9 @@ export default function CheckoutModal({ isOpen, onClose, cart, totalAmount, onSu
           whatsapp: formData.whatsapp,
           address: formData.address,
         },
-        paymentMethod: formData.paymentMethod,
+        paymentMethod: paymentMethodValue,
         items: orderItems,
-        totalAmount: Number(totalAmount)
+        totalAmount: finalTotal
       };
 
       const res = await fetch("/api/orders", {
@@ -101,12 +124,64 @@ export default function CheckoutModal({ isOpen, onClose, cart, totalAmount, onSu
         body: JSON.stringify(newOrderData)
       });
 
-      if (res.ok) {
-        // Save email so My Orders page can fetch this customer's orders
-        localStorage.setItem("user_email", formData.email);
-        setCompletedOrder({ ...formData, orderId: generatedOrderId, time: currentTime });
-      } else {
+      if (!res.ok) {
         alert("Something went wrong. Please try again.");
+        return;
+      }
+
+      localStorage.setItem("user_email", formData.email);
+
+      if (formData.paymentMethod === "cod") {
+        // ── COD: show success popup as usual ──
+        setCompletedOrder({ ...formData, orderId: generatedOrderId, time: currentTime });
+
+      } else {
+        // ── PayHere: get server hash and redirect ──
+        const hashRes = await fetch("/api/payhere/hash", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId: generatedOrderId,
+            amount: finalTotal,
+            currency: "LKR"
+          })
+        });
+
+        if (!hashRes.ok) {
+          alert("Payment initialization failed. Please check PayHere configuration.");
+          return;
+        }
+
+        const { hash, amountFormatted, merchantId } = await hashRes.json();
+
+        const nameParts = formData.name.trim().split(" ");
+        const firstName = nameParts[0] || formData.name;
+        const lastName = nameParts.slice(1).join(" ") || ".";
+
+        const baseUrl = window.location.origin;
+        const itemList = cart.map(i => i.name).join(", ").slice(0, 255);
+
+        setPayhereParams({
+          merchant_id: merchantId,
+          return_url: `${baseUrl}/payment-return?order_id=${generatedOrderId}`,
+          cancel_url: `${baseUrl}/payment-cancel`,
+          notify_url: `${baseUrl}/api/payhere/notify`,
+          order_id: generatedOrderId,
+          items: itemList || "Mr.Korea Order",
+          currency: "LKR",
+          amount: amountFormatted,
+          first_name: firstName,
+          last_name: lastName,
+          email: formData.email,
+          phone: formData.phone,
+          address: formData.address,
+          city: "Balangoda",
+          country: "Sri Lanka",
+          delivery_address: formData.address,
+          delivery_city: "Sri Lanka",
+          delivery_country: "Sri Lanka",
+          hash: hash,
+        });
       }
     } catch (error) {
       console.error("Checkout Error:", error);
@@ -116,36 +191,35 @@ export default function CheckoutModal({ isOpen, onClose, cart, totalAmount, onSu
     }
   };
 
-  // 👇 මෙතනින් තමයි කෙලින්ම PDF එක ඇඳලා Download කරන්නේ (HTML/CSS අවුල් එන්නේ නෑ!)
   const handleDownloadAndWhatsApp = () => {
     try {
       const doc = new jsPDF("p", "mm", "a4");
-      
+
       // Header Section
       doc.setFontSize(26);
-      doc.setTextColor(230, 57, 70); // #E63946 Red
+      doc.setTextColor(230, 57, 70);
       doc.setFont("helvetica");
       doc.text("MR.KOREA", 105, 25, { align: "center" });
-      
+
       doc.setFontSize(11);
       doc.setTextColor(100, 100, 100);
       doc.setFont("helvetica", "bold");
       doc.text("Your Premium Store", 105, 32, { align: "center" });
       doc.text(`Contact: ${STORE_CONTACT}`, 105, 38, { align: "center" });
-      
+
       // Divider Line
       doc.setDrawColor(220, 220, 220);
       doc.setLineWidth(0.5);
       doc.line(20, 45, 190, 45);
-      
+
       // Billed To & Order Details Section
       doc.setFontSize(10);
       doc.setTextColor(150, 150, 150);
       doc.setFont("helvetica", "bold");
       doc.text("BILLED TO:", 20, 55);
       doc.text("ORDER DETAILS:", 190, 55, { align: "right" });
-      
-      doc.setTextColor(17, 24, 39); // Dark Gray
+
+      doc.setTextColor(17, 24, 39);
       doc.setFontSize(12);
       doc.text(completedOrder.name, 20, 62);
       doc.setFontSize(10);
@@ -153,27 +227,27 @@ export default function CheckoutModal({ isOpen, onClose, cart, totalAmount, onSu
       doc.text(completedOrder.phone, 20, 68);
       const splitAddress = doc.splitTextToSize(completedOrder.address, 60);
       doc.text(splitAddress, 20, 74);
-      
+
       doc.setFont("helvetica", "bold");
       doc.text("ID: ", 150, 62);
       doc.setTextColor(230, 57, 70);
       doc.text(completedOrder.orderId, 190, 62, { align: "right" });
-      
+
       doc.setTextColor(100, 100, 100);
       doc.setFont("helvetica", "normal");
       doc.text(`Date: ${completedOrder.time}`, 190, 68, { align: "right" });
       doc.setFont("helvetica", "bold");
-      doc.text(`Payment: ${completedOrder.paymentMethod === 'cod' ? 'CASH ON DELIVERY' : 'BANK TRANSFER'}`, 190, 74, { align: "right" });
-      
+      doc.text(`Payment: CASH ON DELIVERY`, 190, 74, { align: "right" });
+
       // Table Header
       let y = 90;
-      doc.setFillColor(31, 41, 55); // #1F2937
+      doc.setFillColor(31, 41, 55);
       doc.rect(20, y, 170, 10, "F");
       doc.setTextColor(255, 255, 255);
       doc.text("Item", 25, y + 6.5);
       doc.text("Qty", 130, y + 6.5, { align: "center" });
       doc.text("Price", 185, y + 6.5, { align: "right" });
-      
+
       // Table Body
       y += 16;
       doc.setTextColor(17, 24, 39);
@@ -187,49 +261,78 @@ export default function CheckoutModal({ isOpen, onClose, cart, totalAmount, onSu
         doc.text(`Rs ${(item.price * (item.quantity || 1)).toLocaleString()}`, 185, y, { align: "right" });
         y += (splitName.length * 6) + 4;
       });
-      
-      // Total Amount
+
+      // Total Calculations
       y += 5;
       doc.setDrawColor(200, 200, 200);
       doc.line(100, y, 190, y);
+      
+      const subtotal = Number(totalAmount);
+      const finalTotal = subtotal + DELIVERY_FEE;
+
+      y += 8;
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 100, 100);
+      doc.text("Subtotal:", 120, y);
+      doc.text(`Rs ${subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 190, y, { align: "right" });
+
+      y += 6;
+      doc.text("Delivery Fee:", 120, y);
+      doc.text(`Rs ${DELIVERY_FEE.toFixed(2)}`, 190, y, { align: "right" });
+
       y += 8;
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(17, 24, 39); 
-      doc.text("Total Amount:", 120, y); 
-    
+      doc.setTextColor(17, 24, 39);
+      doc.text("Total Amount:", 120, y);
+
       doc.setTextColor(230, 57, 70);
-      doc.text(`Rs ${totalAmount}`, 190, y, { align: "right" }); // 
-      
+      doc.text(`Rs ${finalTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 190, y, { align: "right" });
+
       // Footer Note
       y += 25;
       doc.setFontSize(10);
       doc.setTextColor(150, 150, 150);
       doc.text("Thank you for shopping with Mr.Korea!", 105, y, { align: "center" });
-      
-      // PDF Download වෙනවා!
-      doc.save(`Invoice_${completedOrder.orderId}.pdf`);
 
+      doc.save(`Invoice_${completedOrder.orderId}.pdf`);
     } catch (err) {
       console.error("PDF generation failed", err);
     }
 
-    // 2. WhatsApp එක අලුත් Tab එකකින් ඕපන් වෙනවා
+    // WhatsApp message
     const waMessage = buildWhatsAppMessage(completedOrder);
     const waUrl = `https://wa.me/${SELLER_WHATSAPP}?text=${encodeURIComponent(waMessage)}`;
     window.open(waUrl, '_blank');
 
-    // 3. තත්පර 1.5 කට පස්සේ Modal එක ඔටෝම වැහෙනවා (Close Button ඕනේ නෑ)
     setTimeout(() => {
       setCompletedOrder(null);
-      onSuccess(); 
+      onSuccess();
       onClose();
     }, 1500);
   };
 
+  const subtotalVal = Number(totalAmount);
+  const finalTotalVal = subtotalVal + DELIVERY_FEE;
+
   return (
     <>
-      {/* ── Success Popup ── */}
+      {/* ── Hidden PayHere Form ── */}
+      {payhereParams && (
+        <form
+          ref={payhereFormRef}
+          method="POST"
+          action={PAYHERE_URL}
+          style={{ display: "none" }}
+        >
+          {Object.entries(payhereParams).map(([key, value]) => (
+            <input key={key} type="hidden" name={key} value={value} />
+          ))}
+        </form>
+      )}
+
+      {/* ── Success Popup (COD only) ── */}
       {completedOrder && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#111827]/80 backdrop-blur-sm px-4">
           <div className="bg-white rounded-3xl shadow-2xl p-6 md:p-8 max-w-md w-full text-center animate-pop-in">
@@ -245,7 +348,6 @@ export default function CheckoutModal({ isOpen, onClose, cart, totalAmount, onSu
               Your order is saved. Click below to automatically download your invoice and send the order details to us via WhatsApp.
             </p>
 
-            {/* මේක එබුවම ඔක්කොම එකපාර වෙනවා */}
             <button
               onClick={handleDownloadAndWhatsApp}
               className="w-full bg-[#E63946] hover:bg-[#C1121F] text-white py-4 rounded-xl font-bold text-sm md:text-base flex flex-col items-center justify-center gap-1 shadow-md hover:shadow-lg transition active:scale-[0.98]"
@@ -260,7 +362,7 @@ export default function CheckoutModal({ isOpen, onClose, cart, totalAmount, onSu
       )}
 
       {/* ── Checkout Form Modal ── */}
-      {!completedOrder && (
+      {!completedOrder && !payhereParams && (
         <div className="fixed inset-0 bg-[#111827]/70 backdrop-blur-sm flex justify-center items-end md:items-center z-[60] p-0 md:p-4 transition-all">
           <div className="bg-white text-gray-900 shadow-2xl rounded-t-3xl md:rounded-3xl p-5 md:p-8 w-full max-w-2xl relative border border-gray-100 max-h-[90vh] flex flex-col animate-slide-up md:animate-none">
 
@@ -270,9 +372,20 @@ export default function CheckoutModal({ isOpen, onClose, cart, totalAmount, onSu
 
             <form onSubmit={handleSubmit} className="overflow-y-auto pr-2 space-y-4 md:space-y-5 flex-1">
 
-              <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 flex justify-between items-center">
-                <span className="font-bold text-gray-700">Total Amount:</span>
-                <span className="text-xl font-black text-[#E63946]">Rs {totalAmount}</span>
+              {/* Total display with delivery fee */}
+              <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-2">
+                <div className="flex justify-between items-center text-sm font-semibold text-gray-600">
+                  <span>Subtotal:</span>
+                  <span>Rs {subtotalVal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm font-semibold text-gray-600">
+                  <span>Delivery Fee:</span>
+                  <span>Rs {DELIVERY_FEE.toFixed(2)}</span>
+                </div>
+                <div className="border-t border-gray-200 pt-2 flex justify-between items-center font-bold text-gray-900">
+                  <span>Total Amount:</span>
+                  <span className="text-xl font-black text-[#E63946]">Rs {finalTotalVal.toFixed(2)}</span>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -302,26 +415,52 @@ export default function CheckoutModal({ isOpen, onClose, cart, totalAmount, onSu
                 <textarea required name="address" value={formData.address} onChange={handleChange} rows={3} className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-[#E63946] focus:ring-1 focus:ring-[#E63946] text-sm resize-none" placeholder="No 123, Main Street, City" />
               </div>
 
+              {/* Payment Method */}
               <div>
                 <label className="block text-xs font-bold text-gray-600 uppercase mb-2">Payment Method *</label>
                 <div className="flex flex-col md:flex-row gap-3">
+                  {/* Cash on Delivery */}
                   <label className={`flex-1 flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${formData.paymentMethod === 'cod' ? 'border-[#E63946] bg-red-50' : 'border-gray-200 hover:border-gray-300'}`}>
                     <input type="radio" name="paymentMethod" value="cod" checked={formData.paymentMethod === 'cod'} onChange={handleChange} className="w-4 h-4 accent-[#E63946]" />
-                    <span className="font-bold text-sm text-[#111827]">Cash on Delivery</span>
+                    <div>
+                      <span className="font-bold text-sm text-[#111827] block">Cash on Delivery</span>
+                      <span className="text-xs text-gray-400">Pay when you receive</span>
+                    </div>
                   </label>
-                  <label className={`flex-1 flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${formData.paymentMethod === 'bank' ? 'border-[#E63946] bg-red-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                    <input type="radio" name="paymentMethod" value="bank" checked={formData.paymentMethod === 'bank'} onChange={handleChange} className="w-4 h-4 accent-[#E63946]" />
-                    <span className="font-bold text-sm text-[#111827]">Bank Transfer</span>
+                  {/* Online Pay (PayHere) */}
+                  <label className={`flex-1 flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${formData.paymentMethod === 'payhere' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <input type="radio" name="paymentMethod" value="payhere" checked={formData.paymentMethod === 'payhere'} onChange={handleChange} className="w-4 h-4 accent-blue-600" />
+                    <div>
+                      <span className="font-bold text-sm text-[#111827] block">Pay Online</span>
+                      <span className="text-xs text-gray-400">VISA / MasterCard / Wallets</span>
+                    </div>
                   </label>
                 </div>
+                {formData.paymentMethod === 'payhere' && PAYHERE_MODE === 'sandbox' && (
+                  <p className="mt-2 text-xs font-bold text-orange-500 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
+                    🧪 SANDBOX MODE — Test card: 4916217501611292
+                  </p>
+                )}
               </div>
 
               <div className="pt-4 border-t border-gray-100">
-                <button type="submit" disabled={isSubmitting} className="w-full bg-[#1F2937] hover:bg-[#111827] text-white py-3.5 md:py-4 rounded-xl font-bold text-base md:text-lg hover:shadow-lg transition active:scale-[0.98] disabled:bg-gray-400 disabled:cursor-not-allowed">
-                  {isSubmitting ? "Processing..." : "Save Order"}
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className={`w-full py-3.5 md:py-4 rounded-xl font-bold text-base md:text-lg hover:shadow-lg transition active:scale-[0.98] disabled:bg-gray-400 disabled:cursor-not-allowed
+                    ${formData.paymentMethod === 'payhere'
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                      : 'bg-[#1F2937] hover:bg-[#111827] text-white'
+                    }`}
+                >
+                  {isSubmitting
+                    ? "Processing..."
+                    : formData.paymentMethod === 'payhere'
+                      ? "Pay Now with PayHere →"
+                      : "Save Order"
+                  }
                 </button>
               </div>
-
             </form>
           </div>
         </div>

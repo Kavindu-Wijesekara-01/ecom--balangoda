@@ -7,21 +7,108 @@ import jsPDF from "jspdf";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 
-const STORE_CONTACT = "0711222333";
+const STORE_CONTACT = "0711222555";
 
 function StatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; className: string }> = {
-    Pending:    { label: "Pending",    className: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-    Processing: { label: "Processing", className: "bg-blue-100   text-blue-700   border-blue-200"   },
-    Completed:  { label: "Completed",  className: "bg-green-100  text-green-700  border-green-200"  },
-    Cancelled:  { label: "Cancelled",  className: "bg-red-100    text-red-700    border-red-200"    },
+    Pending:      { label: "Pending",       className: "bg-yellow-150 text-yellow-800 border-yellow-200 bg-yellow-50" },
+    Proceed:      { label: "Proceed",       className: "bg-blue-150 text-blue-800 border-blue-200 bg-blue-50" },
+    "On the way": { label: "On the way",    className: "bg-orange-150 text-orange-800 border-orange-200 bg-orange-50" },
+    Delivered:    { label: "Delivered",     className: "bg-green-150 text-green-800 border-green-200 bg-green-50" },
+    Cancelled:    { label: "Cancelled",     className: "bg-red-150 text-red-800 border-red-200 bg-red-50" },
+    Processing:   { label: "Proceed",       className: "bg-blue-150 text-blue-800 border-blue-200 bg-blue-50" },
+    Completed:    { label: "Delivered",     className: "bg-green-150 text-green-800 border-green-200 bg-green-50" },
   };
-  const cfg = config[status] ?? { label: status, className: "bg-gray-100 text-gray-700 border-gray-200" };
+  const cfg = config[status] ?? { label: status, className: "bg-gray-50 text-gray-700 border-gray-200" };
   return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${cfg.className}`}>
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black border ${cfg.className}`}>
       <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
       {cfg.label}
     </span>
+  );
+}
+
+const getStepIndex = (status: string) => {
+  switch (status) {
+    case "Pending": return 0;
+    case "Proceed":
+    case "Processing":
+      return 1;
+    case "On the way": return 2;
+    case "Delivered":
+    case "Completed":
+      return 3;
+    default: return 0;
+  }
+};
+
+function OrderProgressBar({ status }: { status: string }) {
+  const steps = [
+    { label: "Pending", icon: "🕒", desc: "Placed" },
+    { label: "Proceed", icon: "⚙️", desc: "Confirmed" },
+    { label: "On the way", icon: "🚚", desc: "Shipped" },
+    { label: "Delivered", icon: "✅", desc: "Delivered" }
+  ];
+
+  const currentStep = getStepIndex(status);
+  const isCancelled = status === "Cancelled";
+
+  if (isCancelled) {
+    return (
+      <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-center gap-3 my-4">
+        <span className="text-xl">❌</span>
+        <div>
+          <p className="font-extrabold text-red-800 text-sm">Order Cancelled</p>
+          <p className="text-xs text-red-500 font-bold">This order was cancelled or returned.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full py-6 px-1 my-2 bg-slate-50/50 rounded-2xl border border-slate-100/50">
+      <p className="text-[10px] uppercase font-black text-slate-400 tracking-wider mb-5 px-4">Delivery Progress</p>
+      
+      <div className="relative flex justify-between items-center w-full px-4 sm:px-8">
+        {/* Progress Line */}
+        <div className="absolute top-[18px] left-[10%] right-[10%] h-[3px] bg-slate-200 z-0">
+          <div 
+            className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-700 ease-out"
+            style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
+          />
+        </div>
+
+        {/* Step Nodes */}
+        {steps.map((step, idx) => {
+          const isCompleted = idx < currentStep;
+          const isActive = idx === currentStep;
+          const isFuture = idx > currentStep;
+
+          return (
+            <div key={idx} className="flex flex-col items-center z-10 relative flex-1">
+              {/* Circle Icon */}
+              <div 
+                className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 shadow-sm border-2
+                  ${isCompleted ? 'bg-emerald-500 text-white border-emerald-500 scale-105 shadow-emerald-100' : ''}
+                  ${isActive ? 'bg-white text-emerald-600 border-emerald-500 scale-110 ring-4 ring-emerald-100/50 animate-pulse' : ''}
+                  ${isFuture ? 'bg-white text-slate-400 border-slate-250' : ''}
+                `}
+              >
+                {isCompleted ? "✓" : step.icon}
+              </div>
+
+              {/* Step Labels */}
+              <p className={`text-xs font-black mt-2.5 ${isActive ? 'text-emerald-600' : isCompleted ? 'text-slate-700' : 'text-slate-400'}`}>
+                {step.label}
+              </p>
+              <p className="text-[9px] text-slate-400 font-bold mt-0.5 hidden sm:block">
+                {step.desc}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -123,7 +210,7 @@ export default function MyOrdersPage() {
       doc.setFont("helvetica", "normal");
       doc.text(`Date: ${order.time}`, 190, 68, { align: "right" });
       doc.setFont("helvetica", "bold");
-      doc.text(`Payment: ${order.paymentMethod === "cod" ? "CASH ON DELIVERY" : "BANK TRANSFER"}`, 190, 74, { align: "right" });
+      doc.text(`Payment: ${order.paymentMethod === "cod" ? "CASH ON DELIVERY" : "ONLINE PAYMENT (PAYHERE)"}`, 190, 74, { align: "right" });
 
       let y = 90;
       doc.setFillColor(31, 41, 55);
@@ -155,7 +242,7 @@ export default function MyOrdersPage() {
       doc.setTextColor(17, 24, 39);
       doc.text("Total Amount:", 120, y);
       doc.setTextColor(230, 57, 70);
-      doc.text(`Rs ${order.totalAmount.toLocaleString()}`, 190, y, { align: "right" });
+      doc.text(`Rs ${order.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 190, y, { align: "right" });
 
       y += 25;
       doc.setFontSize(10);
@@ -259,13 +346,13 @@ export default function MyOrdersPage() {
               <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
                 <p className="text-[10px] uppercase font-extrabold text-gray-400 tracking-wider mb-1">Total Spent</p>
                 <p className="text-2xl font-black text-[#E63946]">
-                  Rs {orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0).toLocaleString()}
+                  Rs {orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </p>
               </div>
               <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm col-span-2 md:col-span-1">
-                <p className="text-[10px] uppercase font-extrabold text-gray-400 tracking-wider mb-1">Completed</p>
+                <p className="text-[10px] uppercase font-extrabold text-gray-400 tracking-wider mb-1">Delivered</p>
                 <p className="text-2xl font-black text-green-600">
-                  {orders.filter(o => o.status === "Completed").length}
+                  {orders.filter(o => o.status === "Delivered" || o.status === "Completed").length}
                 </p>
               </div>
             </div>
@@ -292,7 +379,7 @@ export default function MyOrdersPage() {
                           <p className="text-xs text-gray-400 font-medium mt-0.5">{order.time}</p>
                           <p className="text-xs text-gray-500 mt-0.5">
                             {order.items?.length || 0} item{(order.items?.length || 0) !== 1 ? "s" : ""} ·{" "}
-                            <span className="font-bold text-[#111827]">Rs {order.totalAmount?.toLocaleString()}</span>
+                            <span className="font-bold text-[#111827]">Rs {order.totalAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                           </p>
                         </div>
                       </div>
@@ -308,8 +395,12 @@ export default function MyOrdersPage() {
                   {/* Expanded content */}
                   {isExpanded && (
                     <div className="border-t border-gray-100 px-4 md:px-5 pb-5">
+                      
+                      {/* Cool Progress Tracker Stepper */}
+                      <OrderProgressBar status={order.status || "Pending"} />
+
                       {/* Items table */}
-                      <div className="mt-4 mb-4">
+                      <div className="mt-6 mb-4">
                         <p className="text-[10px] uppercase font-extrabold text-gray-400 tracking-wider mb-3">Order Items</p>
                         <div className="space-y-2">
                           {order.items?.map((item: any, idx: number) => (
@@ -325,7 +416,7 @@ export default function MyOrdersPage() {
                               </div>
                               <div className="text-right shrink-0 ml-4">
                                 <p className="text-xs text-gray-400 font-medium">×{item.quantity || 1}</p>
-                                <p className="font-black text-sm text-[#E63946]">Rs {(item.price * (item.quantity || 1)).toLocaleString()}</p>
+                                <p className="font-black text-sm text-[#E63946]">Rs {(item.price * (item.quantity || 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                               </div>
                             </div>
                           ))}
@@ -335,7 +426,7 @@ export default function MyOrdersPage() {
                       {/* Totals row */}
                       <div className="flex justify-between items-center py-3 border-t border-gray-100">
                         <span className="font-bold text-sm text-gray-600">Total Amount</span>
-                        <span className="font-black text-base text-[#111827]">Rs {order.totalAmount?.toLocaleString()}</span>
+                        <span className="font-black text-base text-[#111827]">Rs {order.totalAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                       </div>
 
                       {/* Customer details */}
@@ -353,7 +444,7 @@ export default function MyOrdersPage() {
                           <div>
                             <span className="text-gray-400 font-medium">Payment: </span>
                             <span className="font-bold text-[#111827]">
-                              {order.paymentMethod === "cod" ? "Cash on Delivery" : "Bank Transfer"}
+                              {order.paymentMethod === "cod" ? "Cash on Delivery" : "Online Payment (PayHere)"}
                             </span>
                           </div>
                           <div className="sm:col-span-2">
