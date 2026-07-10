@@ -1,34 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import Link from "next/link";
 
 export default function Footer() {
   const router = useRouter();
-  const [activePolicy, setActivePolicy] = useState<{ title: string; content: string } | null>(null);
-
-  const policies = {
-    privacy: {
-      title: "Privacy Policy",
-      content: "Mr.Korea Online Shop is committed to protecting your personal information. We collect and store your contact details, billing details, and shipping address only for processing your orders securely. Your payment details are sent directly to approved banks/gateways (like PayHere) using 256-bit SSL encryption. We never sell, lease, or share your private information with third parties. Cookies are used to improve website navigation and save shopping carts."
-    },
-    terms: {
-      title: "Terms of Service",
-      content: "By accessing and placing an order on our site, you confirm that you are at least 18 years old or are accessing the site under parent/guardian supervision. All prices listed are in Sri Lankan Rupees (Rs) and are subject to change without prior notice. Products, description details, and stock levels are maintained as accurately as possible. We reserve the right to decline or cancel any order in case of stock unavailability, pricing errors, or fraud suspicion."
-    },
-    refund: {
-      title: "Return & Refund Policy",
-      content: "We stand behind the quality of our items. If you are not satisfied with your purchase, you may request a return or exchange within 7 days of receiving the items. The product must be completely unused, tag intact, and in its original retail packaging. To process a return, contact our customer service hotline or email us. Refund payment will be processed back to the original payment card/method within 5-7 bank working days once the item passes inspection."
-    },
-    delivery: {
-      title: "Delivery & Shipping Info",
-      content: "We deliver island-wide across Sri Lanka. Standard delivery usually takes 2-4 working days. Delivery charges are calculated at checkout. Orders placed before 1:00 PM are processed and shipped on the same working day. Once your package is dispatched, you will receive a tracking link via SMS or email to follow your package's delivery progress."
-    },
-    contact: {
-      title: "Contact Support",
-      content: "If you have any questions about orders, payments, returns, or product details, our friendly customer support team is ready to help you! \n\nHotline: 0711222555 \nEmail: mrkoreabalangoda@gmail.com \nAddress: 141/C, Barns Rathwathta Mawatha, Balangoda, Sri Lanka. \n\nAvailable Hours: Monday to Saturday (8:30 AM - 7:30 PM)."
-    }
-  };
 
   return (
     <footer className="bg-[#1F2937] text-slate-300 pt-12 border-t border-gray-700">
@@ -117,19 +93,19 @@ export default function Footer() {
             <h3 className="text-white font-bold text-sm uppercase tracking-wider mb-6">Policies & Info</h3>
             <ul className="space-y-3 text-sm font-semibold">
               <li>
-                <button onClick={() => setActivePolicy(policies.privacy)} className="text-slate-400 hover:text-white transition-colors cursor-pointer text-left">Privacy Policy</button>
+                <Link href="/privacy-policy" className="text-slate-400 hover:text-white transition-colors cursor-pointer text-left">Privacy Policy</Link>
               </li>
               <li>
-                <button onClick={() => setActivePolicy(policies.terms)} className="text-slate-400 hover:text-white transition-colors cursor-pointer text-left">Terms of Service</button>
+                <Link href="/terms-and-conditions" className="text-slate-400 hover:text-white transition-colors cursor-pointer text-left">Business Terms & Conditions</Link>
               </li>
               <li>
-                <button onClick={() => setActivePolicy(policies.refund)} className="text-slate-400 hover:text-white transition-colors cursor-pointer text-left">Return & Refund Policy</button>
+                <Link href="/return-policy" className="text-slate-400 hover:text-white transition-colors cursor-pointer text-left">Return Policy</Link>
               </li>
               <li>
-                <button onClick={() => setActivePolicy(policies.delivery)} className="text-slate-400 hover:text-white transition-colors cursor-pointer text-left">Delivery & Shipping Info</button>
+                <Link href="/delivery-info" className="text-slate-400 hover:text-white transition-colors cursor-pointer text-left">Delivery & Shipping Info</Link>
               </li>
               <li>
-                <button onClick={() => setActivePolicy(policies.contact)} className="text-slate-400 hover:text-white transition-colors cursor-pointer text-left">Contact Support</button>
+                <Link href="/contact-support" className="text-slate-400 hover:text-white transition-colors cursor-pointer text-left">Contact Support</Link>
               </li>
             </ul>
           </div>
@@ -160,40 +136,6 @@ export default function Footer() {
           <p>© {new Date().getFullYear()} Mr.Korea Online Shop. All Rights Reserved.</p>
         </div>
       </div>
-
-      {/* Policies Interactive Popup Modal Drawer */}
-      {activePolicy && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="relative w-full max-w-lg bg-white text-slate-800 rounded-3xl shadow-2xl overflow-hidden border border-slate-100 animate-scale-in">
-            {/* Modal Header */}
-            <div className="px-6 pt-6 pb-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <h3 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
-                <span className="w-1 h-5 rounded bg-[#E63946]"></span>
-                {activePolicy.title}
-              </h3>
-              <button
-                onClick={() => setActivePolicy(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center font-bold transition-all"
-              >
-                ✕
-              </button>
-            </div>
-            {/* Modal Body */}
-            <div className="p-6 overflow-y-auto max-h-[60vh] text-sm leading-relaxed text-slate-600 font-semibold whitespace-pre-line">
-              {activePolicy.content}
-            </div>
-            {/* Modal Footer */}
-            <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-100 flex justify-end">
-              <button
-                onClick={() => setActivePolicy(null)}
-                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition-colors shadow-sm"
-              >
-                Close Window
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </footer>
   );
 }
