@@ -55,7 +55,7 @@ export default function Footer() {
             {/* Social Links */}
             <div className="flex items-center gap-3 mt-6">
               <a
-                href="https://www.facebook.com/"
+                href="https://www.facebook.com/share/1P49SCiJn2/"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Facebook"
