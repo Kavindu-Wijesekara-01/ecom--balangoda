@@ -1,8 +1,25 @@
 "use client";
 
+import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Suspense } from "react";
 
-export default function PaymentCancelPage() {
+function PaymentCancelContent() {
+  const searchParams = useSearchParams();
+  const orderId = searchParams.get("order_id");
+
+  useEffect(() => {
+    if (orderId) {
+      // Delete the pending order from database
+      fetch(`/api/orders?orderId=${orderId}`, {
+        method: "DELETE",
+      }).catch((err) => {
+        console.error("Failed to delete order on cancellation:", err);
+      });
+    }
+  }, [orderId]);
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-4">
       <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-12 max-w-lg w-full text-center border border-slate-100">
@@ -23,7 +40,7 @@ export default function PaymentCancelPage() {
         <p className="text-gray-500 text-sm leading-relaxed mb-6 font-medium bg-gray-50 p-4 rounded-xl border border-gray-100">
           ඔබ payment cancel කළා. ඔබේ order save නොවුනා.
           <br />
-          Cart ක eitems තවමත් ඔබේ cart ගේ ඇත. නැවත try කරන්න.
+          Cart එකෙහි items තවමත් ඔබේ cart එකෙහි ඇත. නැවත try කරන්න.
         </p>
 
         <div className="flex flex-col gap-3">
@@ -42,5 +59,17 @@ export default function PaymentCancelPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PaymentCancelPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-gray-500">
+        Loading...
+      </div>
+    }>
+      <PaymentCancelContent />
+    </Suspense>
   );
 }

@@ -11,17 +11,33 @@ export async function GET(req: Request) {
     const email = searchParams.get("email");
     const orderId = searchParams.get("orderId");
     
-    let query = {};
+    let query: any = {};
     if (orderId) {
       query = { orderId };
-    } else if (email) {
-      query = { "customer.email": email };
+    } else {
+      // Exclude unpaid online payment orders from dashboard, analytics, and user lists
+      const unpaidFilter = {
+        $or: [
+          { paymentMethod: { $ne: "payhere" } },
+          { paymentMethod: "payhere", status: { $nin: ["Pending", "Cancelled"] } }
+        ]
+      };
+      
+      if (email) {
+        query = {
+          $and: [
+            { "customer.email": email },
+            unpaidFilter
+          ]
+        };
+      } else {
+        query = unpaidFilter;
+      }
     }
     
     const orders = await Order.find(query).sort({ createdAt: -1 });
     return NextResponse.json(orders);
   } catch (error) {
-
     return NextResponse.json({ error: "Failed to fetch orders" }, { status: 500 });
   }
 }
@@ -45,10 +61,20 @@ export async function DELETE(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
+    const orderId = searchParams.get("orderId");
     await connectToDatabase();
-    await Order.findByIdAndDelete(id);
+    
+    if (orderId) {
+      await Order.findOneAndDelete({ orderId });
+    } else if (id) {
+      await Order.findByIdAndDelete(id);
+    } else {
+      return NextResponse.json({ error: "Missing id or orderId parameter" }, { status: 400 });
+    }
+    
     return NextResponse.json({ message: "Deleted successfully" });
   } catch (error) {
+    console.error("Delete failed:", error);
     return NextResponse.json({ error: "Delete failed" }, { status: 500 });
   }
 }

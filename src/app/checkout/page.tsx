@@ -224,7 +224,7 @@ export default function CheckoutPage() {
         setPayhereParams({
           merchant_id: merchantId,
           return_url: `${baseUrl}/payment-return?order_id=${generatedOrderId}`,
-          cancel_url: `${baseUrl}/payment-cancel`,
+          cancel_url: `${baseUrl}/payment-cancel?order_id=${generatedOrderId}`,
           notify_url: `${baseUrl}/api/payhere/notify`,
           order_id: generatedOrderId,
           items: itemList || "Mr.Korea Order",

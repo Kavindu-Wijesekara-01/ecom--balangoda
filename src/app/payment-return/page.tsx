@@ -16,44 +16,70 @@ function PaymentReturnContent() {
   const orderId = searchParams.get("order_id");
 
   const [order, setOrder] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState<'checking' | 'pending' | 'success' | 'failed' | 'timeout'>('checking');
 
-  // Clear local storage cart immediately on landing
-  useEffect(() => {
-    localStorage.removeItem("cart");
-  }, []);
-
-  // Fetch the created order from database
+  // Verify and poll order payment status
   useEffect(() => {
     if (!orderId) {
-      setLoading(false);
-      setError(true);
+      setVerificationStatus('failed');
       return;
     }
 
-    const fetchOrder = async () => {
+    let intervalId: NodeJS.Timeout;
+    let currentAttempts = 0;
+
+    const checkPaymentStatus = async () => {
       try {
         const res = await fetch(`/api/orders?orderId=${orderId}`);
         if (res.ok) {
           const data = await res.json();
           if (data && data.length > 0) {
-            setOrder(data[0]);
+            const fetchedOrder = data[0];
+            setOrder(fetchedOrder);
+
+            const isPaid = ["Processing", "Proceed", "On the way", "Delivered", "Completed"].includes(fetchedOrder.status);
+            const isCancelled = fetchedOrder.status === "Cancelled";
+
+            if (isPaid) {
+              setVerificationStatus('success');
+              localStorage.removeItem("cart");
+              if (intervalId) clearInterval(intervalId);
+            } else if (isCancelled) {
+              setVerificationStatus('failed');
+              if (intervalId) clearInterval(intervalId);
+            } else {
+              // Status is Pending - wait and poll
+              setVerificationStatus('pending');
+              currentAttempts++;
+              if (currentAttempts >= 10) {
+                setVerificationStatus('timeout');
+                if (intervalId) clearInterval(intervalId);
+              }
+            }
           } else {
-            setError(true);
+            setVerificationStatus('failed');
+            if (intervalId) clearInterval(intervalId);
           }
         } else {
-          setError(true);
+          setVerificationStatus('failed');
+          if (intervalId) clearInterval(intervalId);
         }
       } catch (err) {
         console.error("Error fetching order:", err);
-        setError(true);
-      } finally {
-        setLoading(false);
+        setVerificationStatus('failed');
+        if (intervalId) clearInterval(intervalId);
       }
     };
 
-    fetchOrder();
+    checkPaymentStatus();
+
+    intervalId = setInterval(() => {
+      checkPaymentStatus();
+    }, 3000);
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [orderId]);
 
   const calculateSubtotal = () => {
@@ -219,16 +245,21 @@ function PaymentReturnContent() {
     }, 1500);
   };
 
-  if (loading) {
+  if (verificationStatus === "checking" || verificationStatus === "pending") {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center font-bold text-gray-500 gap-3">
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center font-bold text-gray-500 gap-3 px-4 text-center">
         <div className="w-10 h-10 border-4 border-[#E63946] border-t-transparent rounded-full animate-spin" />
-        <p>Verifying Payment & Retrieving Order Details...</p>
+        <h2 className="text-xl font-black text-[#111827]">Verifying Payment & Retrieving Order Details...</h2>
+        <p className="text-xs text-gray-400 font-bold max-w-xs leading-relaxed">
+          {verificationStatus === "pending"
+            ? "Confirming payment with bank gateway, please wait... This may take up to 30 seconds. Do not close or refresh this page."
+            : "Initializing verification..."}
+        </p>
       </div>
     );
   }
 
-  if (error || !order) {
+  if (verificationStatus === "failed" || !order) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-4">
         <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-12 max-w-lg w-full text-center border border-slate-100">
@@ -237,11 +268,44 @@ function PaymentReturnContent() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-black text-[#111827] mb-2">Order Not Found</h1>
-          <p className="text-gray-500 text-sm mb-6">We could not fetch your order details. Please contact customer support.</p>
-          <Link href="/" className="inline-block bg-[#E63946] hover:bg-[#C1121F] text-white px-8 py-3 rounded-xl font-bold text-sm transition-colors">
-            Go to Homepage
-          </Link>
+          <h1 className="text-2xl font-black text-[#111827] mb-2">Payment Verification Failed</h1>
+          <p className="text-gray-500 text-sm mb-6 bg-gray-50 p-4 rounded-xl border border-gray-100 leading-relaxed font-medium">
+            ඔබේ payment එක අසාර්ථක වී ඇත හෝ cancel කර ඇත. නැවත checkout පිටුවට ගොස් try කරන්න.
+          </p>
+          <div className="flex flex-col gap-3">
+            <Link href="/checkout" className="inline-block bg-[#E63946] hover:bg-[#C1121F] text-white px-8 py-3.5 rounded-xl font-bold text-sm transition-colors text-center shadow-sm">
+              Try Checkout Again
+            </Link>
+            <Link href="/" className="inline-block bg-gray-100 hover:bg-gray-200 text-gray-700 px-8 py-3.5 rounded-xl font-bold text-sm transition-colors text-center">
+              Go to Homepage
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (verificationStatus === "timeout") {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-4">
+        <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-12 max-w-lg w-full text-center border border-slate-100">
+          <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-10 h-10 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-black text-[#111827] mb-2">Verification Timed Out</h1>
+          <p className="text-gray-500 text-sm mb-6 bg-gray-50 p-4 rounded-xl border border-gray-100 leading-relaxed font-medium text-left">
+            ගෙවීම තහවුරු කිරීමට අපට තවමත් සන්නිවේදනයක් ලැබී නැත. ඔබ ගෙවීම සාර්ථකව සිදු කලේ නම්, කරුණාකර ඔබගේ Order ID (<span className="text-[#E63946] font-bold">{order.orderId}</span>) සමඟ support අමතන්න.
+          </p>
+          <div className="flex flex-col gap-3">
+            <Link href="/my-orders" className="inline-block bg-[#1F2937] hover:bg-black text-white px-8 py-3.5 rounded-xl font-bold text-sm transition-colors text-center shadow-sm">
+              Go to My Orders
+            </Link>
+            <Link href="/" className="inline-block bg-gray-100 hover:bg-gray-200 text-gray-700 px-8 py-3.5 rounded-xl font-bold text-sm transition-colors text-center">
+              Go to Homepage
+            </Link>
+          </div>
         </div>
       </div>
     );
